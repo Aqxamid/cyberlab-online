@@ -1,5 +1,4 @@
 // CyberLab — Shared utilities loaded on every page
-// const API_BASE = window.CYBERLAB_API || 'http://localhost:4000'; the default one without railway hosting
 const API_BASE = window.CYBERLAB_API || 'https://cyberlab-backend-to2l.onrender.com';
 
 // ── Auth ──────────────────────────────────────────────
