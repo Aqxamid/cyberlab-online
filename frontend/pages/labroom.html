@@ -65,13 +65,15 @@
 
         <!-- Right panel -->
         <div class="lg:col-span-2 space-y-5">
-          <!-- IDOR console link -->
-          <div id="idor-panel" class="hidden bg-black/40 border border-cyan-800/40 rounded-lg p-5">
-            <h3 class="orbitron text-xs font-bold text-cyan-400 mb-3 tracking-wide">🖥️ INTERACTIVE CONSOLE</h3>
-            <p class="text-xs text-gray-500 mb-4">This lab has an interactive vulnerable API running on port 5000.</p>
-            <a href="/idor.html" class="block text-center border border-cyan-700 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 py-2 rounded text-xs transition-colors orbitron tracking-wide">
-              OPEN IDOR CONSOLE →
+          <!-- Lab environment launch -->
+          <div id="lab-env-panel" class="hidden bg-black/40 border border-cyan-800/40 rounded-lg p-5">
+            <h3 class="orbitron text-xs font-bold text-cyan-400 mb-3 tracking-wide">🖥️ LIVE LAB ENVIRONMENT</h3>
+            <p class="text-xs text-gray-500 mb-4">This lab has a full interactive vulnerable web app. Open it in a new tab to start exploiting.</p>
+            <a id="lab-env-link" href="#" target="_blank"
+              class="block text-center bg-cyan-500/10 border border-cyan-700 hover:border-cyan-400 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 py-2.5 rounded text-xs transition-all orbitron tracking-wide">
+              LAUNCH LAB ENVIRONMENT →
             </a>
+            <p class="text-xs text-gray-600 mt-2 text-center">Opens in a new tab</p>
           </div>
 
           <!-- Flag submit -->
@@ -133,8 +135,13 @@
         badge.textContent = currentLab.difficulty;
         badge.className = `text-xs px-2 py-0.5 rounded border ${difficultyBadge(currentLab.difficulty)}`;
 
-        if (currentLab.slug === 'idor-basics') {
-          document.getElementById('idor-panel').classList.remove('hidden');
+        // Show lab environment button if this lab has a live container
+        const labUrl = window.CYBERLAB_LABS && window.CYBERLAB_LABS[currentLab.slug];
+        if (labUrl) {
+          const panel = document.getElementById('lab-env-panel');
+          const link  = document.getElementById('lab-env-link');
+          link.href = labUrl;
+          panel.classList.remove('hidden');
         }
 
         if (progress.completed) {

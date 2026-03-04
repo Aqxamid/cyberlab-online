@@ -3,5 +3,5 @@ WORKDIR /app
 COPY package.json .
 RUN npm install --omit=dev
 COPY . .
-EXPOSE 5001
+EXPOSE 5002
 CMD ["node", "server.js"]
