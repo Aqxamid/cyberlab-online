@@ -46,12 +46,22 @@ const PORT = process.env.PORT || 4000;
 // ── CORS Middleware ──────────────────────────────
 // Allow requests from your deployed frontend or localhost for local dev
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-app.use(cors({
-  origin: FRONTEND_URL,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// CORS
+app.use((req, res, next) => {
+  // set to the actual frontend URL
+  const origin = process.env.FRONTEND_URL || 'https://securitylabs-gghn.onrender.com';
+
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  // preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
 
 // ── Body Parsing Middleware ──────────────────────
 app.use(express.json());
