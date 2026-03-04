@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — CyberLab</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    body { background:#050b12; font-family:'Share Tech Mono',monospace; }
+    .orbitron { font-family:'Orbitron',sans-serif; }
+    .grid-bg { background-image:linear-gradient(rgba(0,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,255,0.03) 1px,transparent 1px);background-size:40px 40px; }
+    @keyframes countUp { from{opacity:0;transform:scale(0.7)} to{opacity:1;transform:scale(1)} }
+    .count-up { animation: countUp 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+    .stat-card { background:rgba(0,0,0,0.5); border:1px solid rgba(0,255,255,0.1); transition:border-color 0.2s; }
+    .stat-card:hover { border-color: rgba(0,255,255,0.35); }
+  </style>
+</head>
+<body class="min-h-screen grid-bg text-gray-300">
+
+  <!-- Navbar -->
+  <header class="border-b border-cyan-900/50 bg-black/50 sticky top-0 z-50 backdrop-blur-sm" id="navbar"></header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+    <!-- Welcome -->
+    <div class="mb-8">
+      <p class="text-cyan-600 text-xs tracking-widest uppercase mb-1">// training environment</p>
+      <h1 class="orbitron text-2xl sm:text-3xl font-black text-white" id="welcome-title">DASHBOARD</h1>
+      <p class="text-gray-500 text-sm mt-1" id="welcome-sub">Loading your stats...</p>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10" id="stats-grid">
+      <div class="stat-card rounded-lg p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-widest mb-1">Labs Done</p>
+        <p class="orbitron text-3xl font-black text-cyan-400" id="s-completed">—</p>
+      </div>
+      <div class="stat-card rounded-lg p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-widest mb-1">Total Points</p>
+        <p class="orbitron text-3xl font-black text-yellow-400" id="s-points">—</p>
+      </div>
+      <div class="stat-card rounded-lg p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-widest mb-1">Accuracy</p>
+        <p class="orbitron text-3xl font-black text-green-400" id="s-accuracy">—</p>
+      </div>
+      <div class="stat-card rounded-lg p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-widest mb-1">Attempts</p>
+        <p class="orbitron text-3xl font-black text-purple-400" id="s-attempts">—</p>
+      </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="mb-10">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-xs text-gray-500 uppercase tracking-widest">Lab Completion</span>
+        <span class="text-xs text-cyan-500" id="s-progress-label">0 / 0</span>
+      </div>
+      <div class="w-full bg-gray-900 rounded-full h-2">
+        <div class="bg-gradient-to-r from-cyan-600 to-cyan-400 h-2 rounded-full transition-all duration-700" id="s-progress-bar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Two columns -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Recent Completions -->
+      <div class="lg:col-span-2 bg-black/40 border border-cyan-900/40 rounded-lg p-5">
+        <h2 class="orbitron text-sm font-bold text-white mb-4 tracking-wide">RECENT COMPLETIONS</h2>
+        <div id="recent-list" class="space-y-2 text-sm text-gray-400">
+          <p class="text-gray-600">Loading...</p>
+        </div>
+        <div class="mt-5">
+          <a href="/labs.html" class="inline-block border border-cyan-700 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 px-4 py-2 rounded text-xs transition-colors orbitron tracking-wide">
+            VIEW ALL LABS →
+          </a>
+        </div>
+      </div>
+
+      <!-- Categories -->
+      <div class="bg-black/40 border border-cyan-900/40 rounded-lg p-5">
+        <h2 class="orbitron text-sm font-bold text-white mb-4 tracking-wide">BY CATEGORY</h2>
+        <div id="category-list" class="space-y-2 text-xs">
+          <p class="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin panel (instructors/admins) -->
+    <div id="admin-section" class="hidden mt-8">
+      <div class="bg-black/40 border border-yellow-900/40 rounded-lg p-5">
+        <h2 class="orbitron text-sm font-bold text-yellow-400 mb-4 tracking-wide">⚡ PLATFORM STATS</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" id="admin-stats-grid">
+          <div class="text-center">
+            <p class="text-xs text-gray-500 mb-1">Total Users</p>
+            <p class="orbitron text-2xl text-white" id="a-users">—</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xs text-gray-500 mb-1">Active Users</p>
+            <p class="orbitron text-2xl text-green-400" id="a-active">—</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xs text-gray-500 mb-1">Labs Enabled</p>
+            <p class="orbitron text-2xl text-cyan-400" id="a-labs">—</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xs text-gray-500 mb-1">Success Rate</p>
+            <p class="orbitron text-2xl text-yellow-400" id="a-success">—</p>
+          </div>
+        </div>
+        <div class="mt-4">
+          <a href="/admin.html" class="inline-block border border-yellow-700 hover:border-yellow-400 text-yellow-400 hover:text-yellow-300 px-4 py-2 rounded text-xs transition-colors orbitron tracking-wide">
+            MANAGE PLATFORM →
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/config.js"></script>
+  <script src="/app.js"></script>
+  <script>
+    if (!Auth.requireAuth()) throw new Error('Not authenticated');
+    renderNavBar();
+
+    const user = Auth.getUser();
+    document.getElementById('welcome-title').textContent = `WELCOME, ${user.username.toUpperCase()}`;
+    document.getElementById('welcome-sub').textContent = `Role: ${user.role} | Building your security skills...`;
+
+    async function loadStats() {
+      try {
+        const stats = await apiFetch('/api/stats/student');
+
+        document.getElementById('s-completed').textContent = stats.completed;
+        document.getElementById('s-points').textContent = stats.totalPoints;
+        document.getElementById('s-accuracy').textContent = stats.accuracy + '%';
+        document.getElementById('s-attempts').textContent = stats.totalAttempts;
+
+        const pct = stats.totalLabs ? Math.round((stats.completed / stats.totalLabs) * 100) : 0;
+        document.getElementById('s-progress-bar').style.width = pct + '%';
+        document.getElementById('s-progress-label').textContent = `${stats.completed} / ${stats.totalLabs}`;
+
+        // Recent completions
+        const recentList = document.getElementById('recent-list');
+        if (stats.recentCompletions.length === 0) {
+          recentList.innerHTML = '<p class="text-gray-600 text-xs">No completions yet. <a href="/labs.html" class="text-cyan-600 hover:text-cyan-400">Start a lab →</a></p>';
+        } else {
+          recentList.innerHTML = stats.recentCompletions.map(c => `
+            <div class="flex items-center justify-between py-1.5 border-b border-gray-900/50">
+              <span class="text-gray-300 text-xs">${c.labs?.title || 'Lab'}</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs px-1.5 py-0.5 rounded border ${difficultyBadge(c.labs?.difficulty)}">${c.labs?.difficulty || ''}</span>
+                <span class="text-yellow-500 text-xs">+${c.labs?.points || 0}pts</span>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        // Categories
+        const catList = document.getElementById('category-list');
+        const cats = Object.entries(stats.completionsByCategory);
+        if (cats.length === 0) {
+          catList.innerHTML = '<p class="text-gray-600">None yet</p>';
+        } else {
+          catList.innerHTML = cats.map(([cat, count]) => `
+            <div class="flex justify-between items-center">
+              <span class="text-gray-400">${cat}</span>
+              <span class="text-cyan-400 font-bold">${count}</span>
+            </div>
+          `).join('');
+        }
+
+      } catch (err) {
+        console.error('Stats error:', err);
+        showToast('Failed to load stats', 'error');
+      }
+    }
+
+    async function loadAdminStats() {
+      if (!['instructor', 'admin'].includes(user.role)) return;
+      document.getElementById('admin-section').classList.remove('hidden');
+      try {
+        const stats = await apiFetch('/api/stats/admin');
+        document.getElementById('a-users').textContent = stats.totalUsers;
+        document.getElementById('a-active').textContent = stats.activeUsers;
+        document.getElementById('a-labs').textContent = `${stats.enabledLabs}/${stats.totalLabs}`;
+        document.getElementById('a-success').textContent = stats.successRate + '%';
+      } catch (err) {
+        console.error('Admin stats error:', err);
+      }
+    }
+
+    loadStats();
+    loadAdminStats();
+  </script>
+</body>
+</html>

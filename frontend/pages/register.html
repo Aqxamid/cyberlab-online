@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register — CyberLab</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    body { background:#050b12; font-family:'Share Tech Mono',monospace; }
+    .orbitron { font-family:'Orbitron',sans-serif; }
+    .grid-bg { background-image:linear-gradient(rgba(0,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,255,0.03) 1px,transparent 1px);background-size:40px 40px; }
+    .glow-input:focus { box-shadow:0 0 0 1px #0ff4, 0 0 12px #0ff2; outline:none; }
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .slide-up{animation:slideUp 0.5s ease forwards;}
+  </style>
+</head>
+<body class="min-h-screen grid-bg flex flex-col">
+  <header class="border-b border-cyan-900/50 bg-black/40">
+    <div class="max-w-7xl mx-auto px-6 flex items-center h-14">
+      <a href="/index.html" class="flex items-center gap-2">
+        <div class="w-7 h-7 bg-cyan-500 rounded flex items-center justify-center text-black font-black text-xs">CL</div>
+        <span class="orbitron font-bold text-white tracking-widest text-sm">CYBERLAB</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-1 flex items-center justify-center px-4 py-12">
+    <div class="slide-up w-full max-w-sm">
+      <div class="bg-black/60 border border-cyan-900/60 rounded-xl p-8" style="box-shadow:0 0 30px rgba(0,255,255,0.05)">
+        <h1 class="orbitron text-xl font-black text-white mb-1">CREATE ACCOUNT</h1>
+        <p class="text-gray-500 text-xs mb-8">Join the training platform</p>
+
+        <div id="error-msg" class="hidden mb-4 p-3 rounded border border-red-700 bg-red-900/20 text-red-400 text-xs"></div>
+        <div id="success-msg" class="hidden mb-4 p-3 rounded border border-green-700 bg-green-900/20 text-green-400 text-xs"></div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="text-xs text-cyan-600 uppercase tracking-widest block mb-1.5">Username</label>
+            <input id="username" type="text" placeholder="yourhandle"
+              class="w-full bg-black/60 border border-cyan-900/60 text-gray-200 text-sm px-3 py-2.5 rounded glow-input transition-all focus:border-cyan-500 placeholder-gray-700">
+          </div>
+          <div>
+            <label class="text-xs text-cyan-600 uppercase tracking-widest block mb-1.5">Email</label>
+            <input id="email" type="email" placeholder="you@example.com"
+              class="w-full bg-black/60 border border-cyan-900/60 text-gray-200 text-sm px-3 py-2.5 rounded glow-input transition-all focus:border-cyan-500 placeholder-gray-700">
+          </div>
+          <div>
+            <label class="text-xs text-cyan-600 uppercase tracking-widest block mb-1.5">Password</label>
+            <input id="password" type="password" placeholder="min 6 characters"
+              class="w-full bg-black/60 border border-cyan-900/60 text-gray-200 text-sm px-3 py-2.5 rounded glow-input transition-all focus:border-cyan-500 placeholder-gray-700">
+          </div>
+          <button id="reg-btn" onclick="doRegister()"
+            class="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-3 rounded text-sm orbitron tracking-wide transition-all hover:shadow-lg hover:shadow-cyan-500/20 mt-2">
+            REGISTER →
+          </button>
+        </div>
+
+        <p class="text-center text-gray-600 text-xs mt-6">
+          Have an account? <a href="/login.html" class="text-cyan-500 hover:text-cyan-300 transition-colors">Sign in</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <script src="/config.js"></script>
+  <script src="/app.js"></script>
+  <script>
+    Auth.requireGuest();
+
+    async function doRegister() {
+      const btn = document.getElementById('reg-btn');
+      const errEl = document.getElementById('error-msg');
+      const okEl = document.getElementById('success-msg');
+      const username = document.getElementById('username').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      errEl.classList.add('hidden');
+      okEl.classList.add('hidden');
+
+      if (!username || !email || !password) {
+        errEl.textContent = 'Please fill in all fields.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      if (password.length < 6) {
+        errEl.textContent = 'Password must be at least 6 characters.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      btn.textContent = 'Creating account...';
+      btn.disabled = true;
+
+      try {
+        const data = await apiFetch('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ username, email, password })
+        });
+        Auth.setSession(data.token, data.user);
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        errEl.textContent = err.message || 'Registration failed.';
+        errEl.classList.remove('hidden');
+        btn.textContent = 'REGISTER →';
+        btn.disabled = false;
+      }
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+  </script>
+</body>
+</html>

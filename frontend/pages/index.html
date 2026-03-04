@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberLab — Interactive Cybersecurity Training</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #050b12; font-family: 'Share Tech Mono', monospace; }
+    .orbitron { font-family: 'Orbitron', sans-serif; }
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(0,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .glow-cyan { text-shadow: 0 0 20px rgba(0,255,255,0.7), 0 0 40px rgba(0,255,255,0.3); }
+    .glow-border { box-shadow: 0 0 0 1px rgba(0,255,255,0.3), 0 0 20px rgba(0,255,255,0.1); }
+    .scan-line {
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+      pointer-events: none;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .blink { animation: blink 1s step-end infinite; }
+    @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+    .slide-up { animation: slideUp 0.6s ease forwards; }
+    .delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .delay-2 { animation-delay: 0.25s; opacity: 0; }
+    .delay-3 { animation-delay: 0.4s; opacity: 0; }
+    .delay-4 { animation-delay: 0.55s; opacity: 0; }
+    @keyframes floatIn { from{opacity:0;transform:translateX(-20px)} to{opacity:1;transform:translateX(0)} }
+    .float-in { animation: floatIn 0.5s ease forwards; }
+    .terminal-cursor::after { content: '█'; animation: blink 1s step-end infinite; color: #0ff; }
+  </style>
+</head>
+<body class="min-h-screen text-gray-300 grid-bg overflow-x-hidden">
+
+  <!-- Scan line overlay -->
+  <div class="fixed inset-0 scan-line pointer-events-none z-10 opacity-20"></div>
+
+  <!-- Top Nav -->
+  <header class="relative z-20 border-b border-cyan-900/50 bg-black/40 backdrop-blur-sm">
+    <div class="max-w-7xl mx-auto px-6 flex items-center justify-between h-14">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 bg-cyan-500 rounded flex items-center justify-center text-black font-black text-xs">CL</div>
+        <span class="orbitron font-bold text-white tracking-widest text-sm">CYBERLAB</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/login.html" class="text-sm text-gray-400 hover:text-cyan-400 transition-colors px-3 py-1.5">Login</a>
+        <a href="/register.html" class="text-sm bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-4 py-1.5 rounded transition-colors">Get Started</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <main class="relative z-20">
+    <section class="min-h-[80vh] flex items-center justify-center px-6 py-20">
+      <div class="max-w-4xl text-center">
+        <div class="slide-up delay-1 inline-block px-3 py-1 border border-cyan-800 rounded text-cyan-500 text-xs mb-6 tracking-widest uppercase">
+          ▶ Hands-on Cybersecurity Training
+        </div>
+        <h1 class="slide-up delay-2 orbitron text-5xl sm:text-7xl font-black text-white leading-tight mb-6">
+          HACK.<br><span class="text-cyan-400 glow-cyan">LEARN.</span><br>DEFEND.
+        </h1>
+        <p class="slide-up delay-3 text-gray-400 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
+          Explore real-world vulnerability labs. Submit flags. Track your progress. Built for aspiring security professionals.
+        </p>
+        <div class="slide-up delay-4 flex flex-wrap justify-center gap-4">
+          <a href="/register.html" class="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-8 py-3 rounded text-sm transition-all hover:shadow-lg hover:shadow-cyan-500/30 orbitron tracking-wide">
+            START TRAINING →
+          </a>
+          <a href="/login.html" class="border border-cyan-700 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 px-8 py-3 rounded text-sm transition-all">
+            Sign In
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Terminal demo -->
+    <section class="px-6 pb-20">
+      <div class="max-w-2xl mx-auto">
+        <div class="bg-black/60 border border-cyan-900/60 rounded-lg overflow-hidden glow-border">
+          <div class="flex items-center gap-2 px-4 py-2.5 bg-black/40 border-b border-cyan-900/40">
+            <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
+            <span class="text-gray-500 text-xs ml-2">idor-lab ~ terminal</span>
+          </div>
+          <div class="p-5 text-sm space-y-2 font-mono">
+            <p class="text-gray-500">$ curl http://localhost:5000/api/vulnerable/users/<span class="text-yellow-400">1</span></p>
+            <p class="text-green-400">{"id":1,"username":"alice","role":"student"}</p>
+            <p class="text-gray-500 mt-3">$ curl http://localhost:5000/api/vulnerable/users/<span class="text-red-400">99</span></p>
+            <p class="text-cyan-300">{"id":99,"username":"admin","role":"admin","secret":"<span class="text-yellow-300">FLAG{idor_is_dangerous_123}</span>"}</p>
+            <p class="text-gray-600 mt-3">$ <span class="terminal-cursor"></span></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="px-6 pb-24 max-w-6xl mx-auto">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div class="bg-black/40 border border-cyan-900/40 rounded-lg p-6 hover:border-cyan-600/60 transition-colors group">
+          <div class="text-3xl mb-3">🔓</div>
+          <h3 class="orbitron text-sm font-bold text-white mb-2 tracking-wide">REAL VULNERABILITIES</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">IDOR, SQL Injection, XSS, JWT Forgery, Path Traversal — learn by exploiting intentionally vulnerable sandboxes.</p>
+        </div>
+        <div class="bg-black/40 border border-cyan-900/40 rounded-lg p-6 hover:border-cyan-600/60 transition-colors group">
+          <div class="text-3xl mb-3">🏁</div>
+          <h3 class="orbitron text-sm font-bold text-white mb-2 tracking-wide">CTF FLAG SYSTEM</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">Earn points by finding and submitting flags. Track your accuracy, total score, and completion rate per lab.</p>
+        </div>
+        <div class="bg-black/40 border border-cyan-900/40 rounded-lg p-6 hover:border-cyan-600/60 transition-colors group">
+          <div class="text-3xl mb-3">📊</div>
+          <h3 class="orbitron text-sm font-bold text-white mb-2 tracking-wide">INSTRUCTOR TOOLS</h3>
+          <p class="text-gray-500 text-sm leading-relaxed">Instructor dashboard with platform-wide stats, enable/disable labs, and monitor student progress in real time.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Accounts preview -->
+    <section class="px-6 pb-24 max-w-2xl mx-auto">
+      <div class="bg-black/40 border border-cyan-900/40 rounded-lg p-6">
+        <h3 class="text-xs text-cyan-500 tracking-widest uppercase mb-4">Demo Accounts</h3>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-gray-600 text-xs border-b border-gray-800">
+              <th class="text-left pb-2">Username</th>
+              <th class="text-left pb-2">Password</th>
+              <th class="text-left pb-2">Role</th>
+            </tr>
+          </thead>
+          <tbody class="text-gray-400 space-y-1">
+            <tr class="border-b border-gray-900/50"><td class="py-2 text-white">alice</td><td>password123</td><td><span class="text-cyan-500 text-xs">student</span></td></tr>
+            <tr class="border-b border-gray-900/50"><td class="py-2 text-white">bob</td><td>password123</td><td><span class="text-cyan-500 text-xs">student</span></td></tr>
+            <tr class="border-b border-gray-900/50"><td class="py-2 text-white">instructor1</td><td>password123</td><td><span class="text-yellow-400 text-xs">instructor</span></td></tr>
+            <tr><td class="py-2 text-white">admin</td><td>password123</td><td><span class="text-red-400 text-xs">admin</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="relative z-20 border-t border-cyan-900/30 py-6 text-center text-gray-600 text-xs">
+    🛡️ CyberLab — Interactive Cybersecurity Training Platform
+  </footer>
+
+  <script src="/config.js"></script>
+  <script src="/app.js"></script>
+  <script>
+    // Redirect if already logged in
+    if (Auth.isLoggedIn()) window.location.href = '/dashboard.html';
+  </script>
+</body>
+</html>

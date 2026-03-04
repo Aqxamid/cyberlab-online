@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IDOR Lab Console — CyberLab</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    body { background:#050b12; font-family:'Share Tech Mono',monospace; }
+    .orbitron { font-family:'Orbitron',sans-serif; }
+    .grid-bg { background-image:linear-gradient(rgba(0,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,255,0.03) 1px,transparent 1px);background-size:40px 40px; }
+    .terminal { background:#000; border:1px solid rgba(0,255,255,0.2); border-radius:0.5rem; font-size:0.8rem; }
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+    .blink{animation:blink 1s step-end infinite;}
+    .output-line { animation: fadeIn 0.15s ease; }
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    .glow-input:focus { box-shadow:0 0 0 1px #0ff4,0 0 8px #0ff2; outline:none; }
+  </style>
+</head>
+<body class="min-h-screen grid-bg text-gray-300">
+  <header class="border-b border-cyan-900/50 bg-black/50 sticky top-0 z-50 backdrop-blur-sm" id="navbar"></header>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <div class="flex items-center gap-3 mb-2">
+      <a href="/labroom.html?slug=idor-basics" class="text-xs text-gray-600 hover:text-cyan-400 transition-colors">← Back to Lab</a>
+    </div>
+    <h1 class="orbitron text-xl font-black text-white mb-1">IDOR INTERACTIVE CONSOLE</h1>
+    <p class="text-gray-500 text-xs mb-8">Explore the vulnerable API. Try different user IDs and document IDs to find flags.</p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Controls -->
+      <div class="space-y-4">
+        <div class="bg-black/40 border border-cyan-900/40 rounded-lg p-5">
+          <h3 class="orbitron text-xs font-bold text-red-400 mb-4 tracking-wide">❌ VULNERABLE ENDPOINTS</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">User ID</label>
+              <div class="flex gap-2">
+                <input id="vuln-user-id" type="number" value="1" placeholder="1"
+                  class="flex-1 bg-black/60 border border-cyan-900/60 text-gray-200 text-xs px-2 py-1.5 rounded glow-input transition-all focus:border-cyan-500">
+                <button onclick="fetchVulnUser()"
+                  class="bg-red-900/50 hover:bg-red-800/60 border border-red-700 text-red-300 text-xs px-3 py-1.5 rounded transition-colors">
+                  GET
+                </button>
+              </div>
+              <p class="text-gray-700 text-xs mt-1">GET /api/vulnerable/users/:id</p>
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Document ID</label>
+              <div class="flex gap-2">
+                <input id="vuln-doc-id" type="number" value="1" placeholder="1"
+                  class="flex-1 bg-black/60 border border-cyan-900/60 text-gray-200 text-xs px-2 py-1.5 rounded glow-input transition-all focus:border-cyan-500">
+                <button onclick="fetchVulnDoc()"
+                  class="bg-red-900/50 hover:bg-red-800/60 border border-red-700 text-red-300 text-xs px-3 py-1.5 rounded transition-colors">
+                  GET
+                </button>
+              </div>
+              <p class="text-gray-700 text-xs mt-1">GET /api/vulnerable/documents/:id</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-black/40 border border-green-900/40 rounded-lg p-5">
+          <h3 class="orbitron text-xs font-bold text-green-400 mb-4 tracking-wide">✅ PATCHED ENDPOINTS</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Your User ID</label>
+              <input id="patch-my-id" type="number" value="1" placeholder="Your ID (x-user-id header)"
+                class="w-full bg-black/60 border border-green-900/40 text-gray-200 text-xs px-2 py-1.5 rounded glow-input transition-all focus:border-green-500 mb-2">
+              <label class="text-xs text-gray-500 block mb-1">Request User ID</label>
+              <div class="flex gap-2">
+                <input id="patch-user-id" type="number" value="1" placeholder="1"
+                  class="flex-1 bg-black/60 border border-green-900/40 text-gray-200 text-xs px-2 py-1.5 rounded glow-input transition-all focus:border-green-500">
+                <button onclick="fetchPatchUser()"
+                  class="bg-green-900/50 hover:bg-green-800/60 border border-green-700 text-green-300 text-xs px-3 py-1.5 rounded transition-colors">
+                  GET
+                </button>
+              </div>
+              <p class="text-gray-700 text-xs mt-1">GET /api/patched/users/:id (x-user-id header)</p>
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Document ID</label>
+              <div class="flex gap-2">
+                <input id="patch-doc-id" type="number" value="1"
+                  class="flex-1 bg-black/60 border border-green-900/40 text-gray-200 text-xs px-2 py-1.5 rounded glow-input transition-all focus:border-green-500">
+                <button onclick="fetchPatchDoc()"
+                  class="bg-green-900/50 hover:bg-green-800/60 border border-green-700 text-green-300 text-xs px-3 py-1.5 rounded transition-colors">
+                  GET
+                </button>
+              </div>
+              <p class="text-gray-700 text-xs mt-1">GET /api/patched/documents/:id</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hints -->
+        <div class="bg-black/40 border border-yellow-900/30 rounded-lg p-5">
+          <h3 class="orbitron text-xs font-bold text-yellow-500 mb-3 tracking-wide">💡 HINTS</h3>
+          <ul class="space-y-2 text-xs text-gray-500">
+            <li>→ Try user ID <span class="text-yellow-400 cursor-pointer hover:text-yellow-300" onclick="document.getElementById('vuln-user-id').value=99;fetchVulnUser()">99</span> on the vulnerable endpoint</li>
+            <li>→ Try document ID <span class="text-yellow-400 cursor-pointer hover:text-yellow-300" onclick="document.getElementById('vuln-doc-id').value=42;fetchVulnDoc()">42</span> for bonus flag</li>
+            <li>→ Notice how the patched endpoint rejects unauthorized access</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Terminal output -->
+      <div class="lg:col-span-2">
+        <div class="terminal p-0 h-full min-h-96">
+          <div class="flex items-center gap-2 px-4 py-2.5 border-b border-cyan-900/30">
+            <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
+            <span class="text-gray-600 text-xs ml-2">idor-lab ~ api console</span>
+          </div>
+          <div id="terminal-output" class="p-4 overflow-y-auto max-h-[500px] space-y-2">
+            <div class="text-cyan-600 text-xs">// IDOR Lab Console v1.0</div>
+            <div class="text-gray-600 text-xs">// Connected to vulnerable API at port 5000</div>
+            <div class="text-gray-600 text-xs">// Use controls on the left to make requests</div>
+            <div class="text-gray-700 text-xs mt-2">$ <span class="blink">█</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/config.js"></script>
+  <script src="/app.js"></script>
+  <script>
+    if (!Auth.requireAuth()) throw new Error();
+    renderNavBar();
+
+    const IDOR_API = window.CYBERLAB_IDOR || 'http://localhost:5000';
+
+    function log(cmd, response, isError = false) {
+      const out = document.getElementById('terminal-output');
+      const lines = [
+        `<div class="output-line text-gray-500 text-xs">$ ${cmd}</div>`,
+        `<div class="output-line text-xs ${isError ? 'text-red-400' : 'text-green-300'} whitespace-pre-wrap break-all">${JSON.stringify(response, null, 2)}</div>`,
+        `<div class="text-gray-700 text-xs">$ <span class="blink">█</span></div>`
+      ].join('');
+
+      // Remove old cursor
+      const oldCursor = out.querySelector('.blink')?.parentElement;
+      if (oldCursor) oldCursor.remove();
+
+      out.insertAdjacentHTML('beforeend', lines);
+      out.scrollTop = out.scrollHeight;
+
+      // Check for flags
+      const text = JSON.stringify(response);
+      if (text.includes('FLAG{')) {
+        const flags = text.match(/FLAG\{[^}]+\}/g) || [];
+        flags.forEach(flag => showToast(`🏁 Flag found: ${flag}`, 'success'));
+      }
+    }
+
+    async function apiCall(url, cmd) {
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        log(cmd, data, !res.ok);
+      } catch (err) {
+        log(cmd, { error: err.message + ' — Is the IDOR lab running on port 5000?' }, true);
+      }
+    }
+
+    function fetchVulnUser() {
+      const id = document.getElementById('vuln-user-id').value;
+      apiCall(`${IDOR_API}/api/vulnerable/users/${id}`, `curl ${IDOR_API}/api/vulnerable/users/${id}`);
+    }
+
+    function fetchVulnDoc() {
+      const id = document.getElementById('vuln-doc-id').value;
+      apiCall(`${IDOR_API}/api/vulnerable/documents/${id}`, `curl ${IDOR_API}/api/vulnerable/documents/${id}`);
+    }
+
+    function fetchPatchUser() {
+      const myId = document.getElementById('patch-my-id').value;
+      const targetId = document.getElementById('patch-user-id').value;
+      const url = `${IDOR_API}/api/patched/users/${targetId}`;
+      fetch(url, { headers: { 'x-user-id': myId } })
+        .then(r => r.json().then(d => log(`curl -H "x-user-id: ${myId}" ${url}`, d, !r.ok)))
+        .catch(err => log(`curl -H "x-user-id: ${myId}" ${url}`, { error: err.message }, true));
+    }
+
+    function fetchPatchDoc() {
+      const myId = document.getElementById('patch-my-id').value;
+      const docId = document.getElementById('patch-doc-id').value;
+      const url = `${IDOR_API}/api/patched/documents/${docId}`;
+      fetch(url, { headers: { 'x-user-id': myId } })
+        .then(r => r.json().then(d => log(`curl -H "x-user-id: ${myId}" ${url}`, d, !r.ok)))
+        .catch(err => log(`curl -H "x-user-id: ${myId}" ${url}`, { error: err.message }, true));
+    }
+  </script>
+</body>
+</html>

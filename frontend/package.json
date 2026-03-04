@@ -1,0 +1,12 @@
+{
+  "name": "cyberlab-frontend",
+  "version": "1.0.0",
+  "description": "CyberLab Frontend — Static HTML + Tailwind",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
