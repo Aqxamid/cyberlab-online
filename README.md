@@ -1,6 +1,6 @@
 # 🚀 CyberLab‑Online — Interactive Cybersecurity Training Platform
 
-**CyberLab‑Online** is a full‑stack, hands‑on cybersecurity training platform inspired by TryHackMe, built in a **vibecoded** style using plain HTML/Tailwind CSS, Node.js/Express backend, and Supabase for the database.
+**CyberLab‑Online** is a full‑stack, hands‑on cybersecurity training platform inspired by TryHackMe, built using plain HTML/Tailwind CSS, Node.js/Express backend, and Supabase for the database.
 
 🌐 **Try it out live:** [CyberLab Online Live Demo](https://cyberlab-frontend.onrender.com)
 
@@ -32,8 +32,6 @@ This platform delivers interactive vulnerability labs, role‑based dashboards, 
 | Database         | Supabase (PostgreSQL)       |
 | Containerization | Docker & Docker Compose     |
 | Hosting          | Render / Local Docker       |
-
-> This project purposefully avoids React for simplicity and performance while using Tailwind CSS for modern styling. 
 
 ---
 
@@ -111,7 +109,8 @@ npm start
 
 ## 🗂 Project Structure
 
-````
+```
+
 cyberlab-online/
 ├─ backend/           # Express API & Supabase client
 │  ├─ routes/         # Auth, Labs, Stats, Users
@@ -123,7 +122,8 @@ cyberlab-online/
 ├─ docker‑compose.yml # Local dev orchestration
 ├─ .env.example
 └─ README.md
-``` 
+
+```
 
 ---
 
@@ -139,14 +139,11 @@ cyberlab-online/
 | `GET /api/labs/:slug` | GET | Get single lab |
 | `POST /api/labs/:slug/attempt` | POST | Submit a flag |
 | `GET /api/stats/student` | GET | Personal stats |
-| `GET /api/stats/admin` | GET | Admin stats | 
-
----
+| `GET /api/stats/admin` | GET | Admin stats |
 
 ---
 
 ## ❤️ Acknowledgements
 
 This project is inspired by **TryHackMe‑style interactive cybersecurity labs** — a proven model for hands‑on learning.
-
----
+```
