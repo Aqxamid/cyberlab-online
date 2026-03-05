@@ -6,7 +6,7 @@ const PORT = process.env.PORT || 3000;
 app.get('/config.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.send(`
-    window.CYBERLAB_API  = "${process.env.API_URL  || 'http://localhost:4000'}";
+    window.CYBERLAB_API  = "${process.env.API_URL  || 'https://cyberlab-frontend.onrender.com'}";
     window.CYBERLAB_LABS = {
       'idor-basics':      "${process.env.IDOR_URL  || 'https://cyberlab-idor.onrender.com'}",
       'sql-injection-101':"${process.env.SQLI_URL  || 'https://cyberlab-sqli.onrender.com'}",

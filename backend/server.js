@@ -49,7 +49,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 // CORS
 app.use((req, res, next) => {
   // set to the actual frontend URL
-  const origin = process.env.FRONTEND_URL || 'https://securitylabs-gghn.onrender.com';
+  const origin = process.env.FRONTEND_URL || 'https://cyberlab-frontend.onrender.com';
 
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
