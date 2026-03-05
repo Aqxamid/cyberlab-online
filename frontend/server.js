@@ -8,11 +8,11 @@ app.get('/config.js', (req, res) => {
   res.send(`
     window.CYBERLAB_API  = "${process.env.API_URL  || 'http://localhost:4000'}";
     window.CYBERLAB_LABS = {
-      'idor-basics':      "${process.env.IDOR_URL  || 'http://localhost:5001'}",
-      'sql-injection-101':"${process.env.SQLI_URL  || 'http://localhost:5002'}",
-      'xss-reflected':    "${process.env.XSS_URL   || 'http://localhost:5003'}",
-      'jwt-forgery':      "${process.env.JWT_URL    || 'http://localhost:5004'}",
-      'path-traversal':   "${process.env.PATH_URL   || 'http://localhost:5005'}"
+      'idor-basics':      "${process.env.IDOR_URL  || 'https://cyberlab-idor.onrender.com'}",
+      'sql-injection-101':"${process.env.SQLI_URL  || 'https://cyberlab-sqli.onrender.com'}",
+      'xss-reflected':    "${process.env.XSS_URL   || 'https://cyberlab-xss.onrender.com'}",
+      'jwt-forgery':      "${process.env.JWT_URL    || 'https://cyberlab-jwt.onrender.com'}",
+      'path-traversal':   "${process.env.PATH_URL   || 'https://cyberlab-path-traversal.onrender.com'}"
     };
   `);
 });
