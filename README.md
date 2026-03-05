@@ -1,13 +1,5 @@
 # 🚀 CyberLab‑Online — Interactive Cybersecurity Training Platform
 
-**CyberLab‑Online** is a full‑stack, hands‑on cybersecurity training platform inspired by TryHackMe, built using **plain HTML/Tailwind CSS** with a Node.js/Express backend, Supabase as the database, and Docker support for local lab execution. 
-
-This project delivers interactive vulnerability labs, role‑based dashboards, and an extensible API, making it a practical foundation for learning cybersecurity concepts. 
-
----
-
-# 🚀 CyberLab‑Online — Interactive Cybersecurity Training Platform
-
 **CyberLab‑Online** is a full‑stack, hands‑on cybersecurity training platform inspired by TryHackMe, built in a **vibecoded** style using plain HTML/Tailwind CSS, Node.js/Express backend, and Supabase for the database.
 
 🌐 **Try it out live:** [CyberLab Online Live Demo](https://cyberlab-frontend.onrender.com)
