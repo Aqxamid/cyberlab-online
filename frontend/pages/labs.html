@@ -13,7 +13,7 @@
     .lab-card { background:rgba(0,0,0,0.45); border:1px solid rgba(0,255,255,0.1); transition:all 0.2s; cursor:pointer; }
     .lab-card:hover { border-color:rgba(0,255,255,0.4); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,255,255,0.07); }
     .lab-card.completed { border-color:rgba(0,255,100,0.3); }
-    .lab-card.disabled { cursor:not-allowed; opacity:0.5; pointer-events:none; }
+    .lab-card.disabled { opacity:0.5; cursor:not-allowed; pointer-events:none; }
     @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
     .fade-in{animation:fadeIn 0.3s ease forwards;}
   </style>
@@ -61,12 +61,14 @@
 
   async function loadLabs() {
     try {
-      // FIX 1: unwrap the array from the API response object
       const data = await apiFetch('/api/labs');
-      allLabs = data.labs ?? data ?? [];
+      // FIX: API returns a bare array — handle both bare array and wrapped {labs:[]} shape
+      allLabs = Array.isArray(data) ? data : (Array.isArray(data?.labs) ? data.labs : []);
       renderLabs();
     } catch (err) {
       showToast('Failed to load labs', 'error');
+      document.getElementById('labs-grid').innerHTML =
+        '<p class="text-gray-600 text-sm col-span-3">Could not load labs. Please refresh the page.</p>';
     }
   }
 
@@ -90,22 +92,13 @@
     }
 
     grid.innerHTML = labs.map((lab, i) => {
-      // FIX 2: disabled labs get no onclick and pointer-events:none via .disabled class
       const isDisabled = !lab.enabled;
-      const cardClasses = [
-        'lab-card rounded-lg p-6 fade-in',
-        lab.completed ? 'completed' : '',
-        isDisabled ? 'disabled' : ''
-      ].filter(Boolean).join(' ');
-
-      const clickHandler = isDisabled
-        ? ''
-        : `onclick="window.location.href='/labroom.html?slug=${lab.slug}'"`;
+      // FIX: disabled cards get .disabled class (pointer-events:none) and no onclick
+      const cardClass = `lab-card rounded-lg p-6 fade-in ${lab.completed ? 'completed' : ''} ${isDisabled ? 'disabled' : ''}`;
+      const clickAttr = isDisabled ? '' : `onclick="window.location.href='/labroom.html?slug=${lab.slug}'"`;
 
       return `
-        <div class="${cardClasses}"
-             style="animation-delay:${i * 0.05}s"
-             ${clickHandler}>
+        <div class="${cardClass}" style="animation-delay:${i * 0.05}s" ${clickAttr}>
           <div class="flex items-start justify-between mb-3">
             <span class="text-2xl">${categoryIcon[lab.category] || '🔒'}</span>
             <div class="flex items-center gap-2">
