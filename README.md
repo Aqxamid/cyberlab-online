@@ -8,7 +8,7 @@ CyberLab is a full-stack, hands-on platform for learning and practicing cybersec
 
 ## **🌐 Live Deployment**
 
-* **(Web App):** [https://securitylabs-gghn.onrender.com](https://securitylabs-gghn.onrender.com)
+* **Website:** [https://cyberlab-frontend.onrender.com](Go to the website)
 
 > ⚠️ Labs are fully functional locally via Docker. On the live deployment, lab environments do **not spawn dynamically**, so “Go To Lab” buttons show metadata only.
 
