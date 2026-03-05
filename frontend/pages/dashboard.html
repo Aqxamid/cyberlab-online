@@ -21,12 +21,12 @@
 <!-- FIX 2: Prevent back-button cache from showing this page when logged out -->
 <script>
   // Run before anything else — if no token, redirect immediately
-  if (!sessionStorage.getItem('cl_token')) {
+  if (!localStorage.getItem('cl_token')) {
     window.location.replace('/login.html');
   }
   // Also re-check whenever this page is restored from bfcache (back/forward)
   window.addEventListener('pageshow', function(e) {
-    if (e.persisted && !sessionStorage.getItem('cl_token')) {
+    if (e.persisted && !localStorage.getItem('cl_token')) {
       window.location.replace('/login.html');
     }
   });
