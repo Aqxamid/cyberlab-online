@@ -1,6 +1,12 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'cyberlab_secret_change_in_production';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Crash loudly at startup if JWT_SECRET is not set in environment
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set. Set it in your Render environment variables.');
+  process.exit(1);
+}
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
