@@ -1,139 +1,162 @@
 ---
 
-# 🛡️ CyberLab — Interactive Cybersecurity Training Platform
+# 🚀 CyberLab‑Online — Interactive Cybersecurity Training Platform
 
-CyberLab is a full-stack, hands-on platform for learning and practicing cybersecurity skills. It provides virtual labs, user dashboards, and instructor/admin features for tracking lab completions.
+**CyberLab‑Online** is a full‑stack, hands‑on cybersecurity training platform inspired by TryHackMe, built using **plain HTML/Tailwind CSS** with a Node.js/Express backend, Supabase as the database, and Docker support for local lab execution. 
 
----
-
-## **🌐 Live Deployment**
-
-* **Website:** [Go to the link](https://cyberlab-frontend.onrender.com)
-
-> ⚠️ Labs are fully functional locally via Docker. On the live deployment, lab environments do **not spawn dynamically**, so “Go To Lab” buttons show metadata only.
+This project delivers interactive vulnerability labs, role‑based dashboards, and an extensible API, making it a practical foundation for learning cybersecurity concepts. 
 
 ---
 
-## **💻 Features**
+# 🚀 CyberLab‑Online — Interactive Cybersecurity Training Platform
 
-* User authentication (JWT-based login/register)
-* Role-based access: user, instructor, admin
-* Dashboard with lab completion stats
-* Interactive lab cards with difficulty badges
-* Admin interface for managing labs and users
-* Backend API for labs, stats, users, and auth
-* Supabase integration for database storage
-* Docker support for local lab execution
+**CyberLab‑Online** is a full‑stack, hands‑on cybersecurity training platform inspired by TryHackMe, built in a **vibecoded** style using plain HTML/Tailwind CSS, Node.js/Express backend, and Supabase for the database.
+
+🌐 **Try it out live:** [CyberLab Online Live Demo](https://cyberlab-frontend.onrender.com)
+
+This platform delivers interactive vulnerability labs, role‑based dashboards, and an extensible API, making it a practical foundation for learning cybersecurity concepts.
 
 ---
 
-## **🛠 Tech Stack**
+## 🔍 Features
 
-* **Frontend:** HTML, Tailwind CSS, Vanilla JS
-* **Backend:** Node.js, Express.js
-* **Database:** Supabase (PostgreSQL)
-* **Containerization:** Docker & Docker Compose (for local labs)
-* **Hosting:** Render (frontend and backend)
+* ✅ User authentication (JWT‑based login & registration) 
+* ✅ Role‑based access control: **student**, **instructor**, **admin** 
+* ✅ Dashboard with lab completion metrics 
+* ✅ Interactive lab cards & difficulty badges 
+* ✅ Backend API for labs, stats, users, and authentication 
+* ✅ Supabase integration for database storage 
+* ✅ Docker/Docker‑Compose support for local lab execution 
+* ⭐ Extensible lab architecture using isolated containers 
 
----
-
-## **⚙️ Environment Variables**
-
-### Backend (`backend/.env` or Render service environment)
-
-```env
-PORT=4000
-FRONTEND_URL=http://localhost:3000       # Or your deployed frontend URL
-SUPABASE_URL=<your-supabase-url>
-SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
-```
-
-### Frontend (`frontend/.env` or HTML global variable)
-
-```html
-<script>
-  window.CYBERLAB_API = "https://cyberlab-backend-to2l.onrender.com";
-</script>
-```
+> ⚠️ **Important:** JWT tokens are stored in **localStorage** rather than HttpOnly cookies intentionally, to allow labs to simulate real-world XSS/JS-based attacks and practice session handling. 
 
 ---
 
-## **🚀 Local Development with Docker**
+## 🧱 Tech Stack
 
-1. Clone the repo:
+| Layer            | Technology                  |
+| ---------------- | --------------------------- |
+| Frontend         | Vanilla HTML + Tailwind CSS |
+| Backend          | Node.js + Express.js        |
+| Database         | Supabase (PostgreSQL)       |
+| Containerization | Docker & Docker Compose     |
+| Hosting          | Render / Local Docker       |
+
+> This project purposefully avoids React for simplicity and performance while using Tailwind CSS for modern styling. 
+
+---
+
+## 🚀 Quick Start
+
+### 1. Set Up Supabase
+
+1. Create a free Supabase project at **supabase.com**.
+2. Run the SQL in `backend/db/schema.sql` to set up tables.
+3. Copy your **Supabase URL** and **service role key**. 
+
+---
+
+### 2. Configure Environment
 
 ```bash
-git clone https://github.com/Aqxamid/cyberlab-online.git
-cd cyberlab-online
+cp .env.example .env
+# Fill in SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
 ```
 
-2. Make sure Docker & Docker Compose are installed.
+---
 
-3. Create `docker-compose.yml` in the repo root (example):
+### 3. Run with Docker
 
-```yaml
-version: "3.9"
-services:
-  backend:
-    build: ./backend
-    ports:
-      - "4000:4000"
-    environment:
-      PORT: 4000
-      FRONTEND_URL: http://localhost:3000
-      SUPABASE_URL: <your-supabase-url>
-      SUPABASE_SERVICE_ROLE_KEY: <your-service-role-key>
-    command: npm start
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
-    environment:
-      CYBERLAB_API: http://localhost:4000
-    command: npx serve -s pages
-```
-
-4. Run all services:
+From the repository root:
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
-* Frontend: [http://localhost:3000](http://localhost:3000)
-* Backend API: [http://localhost:4000](http://localhost:4000)
-
-> This allows labs to be fully spawned locally via Docker containers.
+* Frontend → [http://localhost:3000](http://localhost:3000)
+* Backend API → [http://localhost:4000](http://localhost:4000)
+* Labs (e.g., IDOR) → [http://localhost:5000](http://localhost:5000) 
 
 ---
 
-## **📝 Notes**
+### 4. Run Locally (without Docker)
 
-* **Lab Execution:** Currently, the deployed Render backend does not spawn lab containers dynamically. Labs are interactive only in your local Docker setup.
-* **CORS:** The backend is configured to allow requests from the frontend URL. If testing locally, set `FRONTEND_URL=http://localhost:3000`.
-* **API_BASE:** All frontend requests go through `window.CYBERLAB_API` or the default backend URL.
+**Backend:**
+
+```bash
+cd backend
+npm install
+npm start
+```
+
+**Frontend:**
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+**Lab Service (e.g., IDOR):**
+
+```bash
+cd labs/idor-lab
+npm install
+npm start
+```
 
 ---
 
-## **📂 Project Structure**
+## 👤 Demo Accounts (pre‑seeded)
 
-```
+| Username    | Password    | Role       |                                                            |
+| ----------- | ----------- | ---------- | ---------------------------------------------------------- |
+| alice       | password123 | student    |                                                            |
+| bob         | password123 | student    |                                                            |
+| instructor1 | password123 | instructor |                                                            |
+| admin       | password123 | admin      |  |
+
+---
+
+## 🗂 Project Structure
+
+````
 cyberlab-online/
-├─ backend/           # Node.js Express API
+├─ backend/           # Express API & Supabase client
 │  ├─ routes/         # Auth, Labs, Stats, Users
 │  └─ server.js
-├─ frontend/          # Static pages & JS
-│  ├─ pages/          # HTML pages (index, dashboard, labs, admin)
+├─ frontend/          # Static pages + scripts
+│  ├─ pages/          # HTML (login, dashboard, labs, admin)
 │  └─ app.js
-├─ docker-compose.yml # Local dev setup
+├─ labs/              # Individual lab containers
+├─ docker‑compose.yml # Local dev orchestration
+├─ .env.example
 └─ README.md
-```
+``` 
 
 ---
 
-## **🔗 Useful Links**
+## 🧠 API Overview
 
-* GitHub Repo: [https://github.com/Aqxamid/cyberlab-online](https://github.com/Aqxamid/cyberlab-online)
-* Render Frontend: [https://securitylabs-gghn.onrender.com](https://securitylabs-gghn.onrender.com)
+**Key endpoints (Express)**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `POST /api/auth/login` | POST | Login & return JWT |
+| `POST /api/auth/register` | POST | Create user |
+| `GET /api/labs` | GET | List labs |
+| `GET /api/labs/:slug` | GET | Get single lab |
+| `POST /api/labs/:slug/attempt` | POST | Submit a flag |
+| `GET /api/stats/student` | GET | Personal stats |
+| `GET /api/stats/admin` | GET | Admin stats | 
+
+---
+
+---
+
+## ❤️ Acknowledgements
+
+This project is inspired by **TryHackMe‑style interactive cybersecurity labs** — a proven model for hands‑on learning.
 
 ---
