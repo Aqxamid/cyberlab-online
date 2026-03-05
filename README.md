@@ -1,144 +1,140 @@
+---
+
 # 🛡️ CyberLab — Interactive Cybersecurity Training Platform
 
-A full-stack, hands-on vulnerability training platform inspired by TryHackMe.  
-Built with **plain HTML + Tailwind CSS**, **Node.js/Express**, **Supabase**, and **Docker**.
-
-> ⚡ This is a re-implementation of the original React-based CyberLab, replacing React with vanilla HTML/Tailwind and replacing local PostgreSQL with Supabase.
+CyberLab is a full-stack, hands-on platform for learning and practicing cybersecurity skills. It provides virtual labs, user dashboards, and instructor/admin features for tracking lab completions.
 
 ---
 
-## 🚀 Quick Start
+## **🌐 Live Deployment**
 
-### 1. Set up Supabase
+* **Frontend (Web App):** [https://securitylabs-gghn.onrender.com](https://securitylabs-gghn.onrender.com)
+* **Backend (API):** [https://cyberlab-backend-to2l.onrender.com](https://cyberlab-backend-to2l.onrender.com)
 
-1. Create a free project at [supabase.com](https://supabase.com)
-2. Go to **SQL Editor** and run the contents of `backend/db/schema.sql`
-3. Copy your project URL and service role key from **Settings → API**
+> ⚠️ Labs are fully functional locally via Docker. On the live deployment, lab environments do **not spawn dynamically**, so “Go To Lab” buttons show metadata only.
 
-### 2. Configure environment
+---
+
+## **💻 Features**
+
+* User authentication (JWT-based login/register)
+* Role-based access: user, instructor, admin
+* Dashboard with lab completion stats
+* Interactive lab cards with difficulty badges
+* Admin interface for managing labs and users
+* Backend API for labs, stats, users, and auth
+* Supabase integration for database storage
+* Docker support for local lab execution
+
+---
+
+## **🛠 Tech Stack**
+
+* **Frontend:** HTML, Tailwind CSS, Vanilla JS
+* **Backend:** Node.js, Express.js
+* **Database:** Supabase (PostgreSQL)
+* **Containerization:** Docker & Docker Compose (for local labs)
+* **Hosting:** Render (frontend and backend)
+
+---
+
+## **⚙️ Environment Variables**
+
+### Backend (`backend/.env` or Render service environment)
+
+```env
+PORT=4000
+FRONTEND_URL=http://localhost:3000       # Or your deployed frontend URL
+SUPABASE_URL=<your-supabase-url>
+SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
+```
+
+### Frontend (`frontend/.env` or HTML global variable)
+
+```html
+<script>
+  window.CYBERLAB_API = "https://cyberlab-backend-to2l.onrender.com";
+</script>
+```
+
+---
+
+## **🚀 Local Development with Docker**
+
+1. Clone the repo:
 
 ```bash
-cp .env.example .env
-# Fill in SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+git clone https://github.com/Aqxamid/cyberlab-online.git
+cd cyberlab-online
 ```
 
-### 3. Run with Docker
+2. Make sure Docker & Docker Compose are installed.
+
+3. Create `docker-compose.yml` in the repo root (example):
+
+```yaml
+version: "3.9"
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      FRONTEND_URL: http://localhost:3000
+      SUPABASE_URL: <your-supabase-url>
+      SUPABASE_SERVICE_ROLE_KEY: <your-service-role-key>
+    command: npm start
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      CYBERLAB_API: http://localhost:4000
+    command: npx serve -s pages
+```
+
+4. Run all services:
 
 ```bash
-docker compose up --build
-
-# Frontend:    http://localhost:3000
-# Backend API: http://localhost:4000
-# IDOR Lab:    http://localhost:5000
+docker-compose up --build
 ```
 
-### 4. Run locally (without Docker)
+* Frontend: [http://localhost:3000](http://localhost:3000)
+* Backend API: [http://localhost:4000](http://localhost:4000)
 
-```bash
-# Backend
-cd backend && npm install && npm start
-
-# Frontend
-cd frontend && npm install && npm start
-
-# IDOR Lab
-cd labs/idor-lab && npm install && npm start
-```
+> This allows labs to be fully spawned locally via Docker containers.
 
 ---
 
-## 👤 Demo Accounts (pre-seeded via schema.sql)
+## **📝 Notes**
 
-| Username     | Password     | Role        |
-|--------------|-------------|-------------|
-| alice        | password123  | student     |
-| bob          | password123  | student     |
-| instructor1  | password123  | instructor  |
-| admin        | password123  | admin       |
+* **Lab Execution:** Currently, the deployed Render backend does not spawn lab containers dynamically. Labs are interactive only in your local Docker setup.
+* **CORS:** The backend is configured to allow requests from the frontend URL. If testing locally, set `FRONTEND_URL=http://localhost:3000`.
+* **API_BASE:** All frontend requests go through `window.CYBERLAB_API` or the default backend URL.
 
 ---
 
-## 🏗️ Architecture
+## **📂 Project Structure**
 
 ```
-cyberlab/
-├── docker-compose.yml
-├── .env.example
-├── frontend/                  # Vanilla HTML + Tailwind CSS SPA
-│   ├── server.js              # Express static file server
-│   └── pages/
-│       ├── app.js             # Shared auth/API utilities
-│       ├── index.html         # Landing page
-│       ├── login.html
-│       ├── register.html
-│       ├── dashboard.html     # Student + instructor dashboard
-│       ├── labs.html          # Lab cards listing
-│       ├── labroom.html       # Theory + flag submit
-│       ├── idor.html          # Interactive IDOR console
-│       └── admin.html         # Instructor/admin panel
-├── backend/                   # Node.js + Express API
-│   ├── server.js
-│   ├── db/
-│   │   ├── supabase.js        # Supabase client
-│   │   └── schema.sql         # Run in Supabase SQL editor
-│   ├── middleware/auth.js     # JWT + role guards
-│   └── routes/
-│       ├── auth.js
-│       ├── labs.js
-│       ├── stats.js
-│       └── users.js
-└── labs/
-    └── idor-lab/              # Isolated vulnerable Express app
-        └── server.js
+cyberlab-online/
+├─ backend/           # Node.js Express API
+│  ├─ routes/         # Auth, Labs, Stats, Users
+│  └─ server.js
+├─ frontend/          # Static pages & JS
+│  ├─ pages/          # HTML pages (index, dashboard, labs, admin)
+│  └─ app.js
+├─ docker-compose.yml # Local dev setup
+└─ README.md
 ```
 
 ---
 
-## 🔑 API Reference
+## **🔗 Useful Links**
 
-### Auth
-- `POST /api/auth/register` — Register (returns JWT)
-- `POST /api/auth/login` — Login (returns JWT)
-- `GET /api/auth/me` — Current user
-
-### Labs
-- `GET /api/labs` — List labs (with completion status)
-- `GET /api/labs/:slug` — Single lab
-- `PATCH /api/labs/:id/toggle` — Enable/disable (instructor/admin)
-- `POST /api/labs/:slug/attempt` — Submit flag
-- `GET /api/labs/:slug/progress` — User progress
-
-### Stats
-- `GET /api/stats/student` — Personal stats
-- `GET /api/stats/admin` — Platform-wide (instructor/admin)
+* GitHub Repo: [https://github.com/Aqxamid/cyberlab-online](https://github.com/Aqxamid/cyberlab-online)
+* Render Frontend: [https://securitylabs-gghn.onrender.com](https://securitylabs-gghn.onrender.com)
 
 ---
-
-## 🧪 IDOR Lab (port 5000)
-
-| Endpoint | Vulnerable? | Notes |
-|----------|------------|-------|
-| `GET /api/vulnerable/users/:id` | ❌ Yes | Try ID 99 for admin flag! |
-| `GET /api/vulnerable/documents/:id` | ❌ Yes | Try ID 42 |
-| `GET /api/patched/users/:id` | ✅ Fixed | Requires x-user-id header |
-| `GET /api/patched/documents/:id` | ✅ Fixed | Ownership check enforced |
-
----
-
-## 🔒 Security Notes
-
-- JWT stored in `sessionStorage` (cleared on tab close), not localStorage
-- All secrets via `.env` environment variables  
-- Supabase service role key only used server-side (never exposed to frontend)
-- Vulnerable labs isolated in separate Docker containers
-- `express-validator` on all auth endpoints
-- bcrypt password hashing (rounds: 10)
-
----
-
-## ➕ Adding Labs
-
-1. Add row to `backend/db/schema.sql` (re-run in Supabase SQL editor)
-2. Create `labs/your-lab/` with a vulnerable Express app
-3. Add service to `docker-compose.yml`
-4. Enable via instructor dashboard

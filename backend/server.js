@@ -33,7 +33,7 @@ app.use('/api/*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🛡️  CyberLab API running on http://localhost:${PORT}`);
 });
-*/
+   uncomment if you want to run the backend server locally using docker */
 
 require('dotenv').config();
 const express = require('express');
