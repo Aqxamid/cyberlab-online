@@ -33,13 +33,25 @@ async function apiFetch(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({}));
 
-  if (res.status === 401 || res.status === 403) {
+  if (res.status === 401) {
+  Auth.clear();
+  window.location.href = '/login.html';
+  return null;
+}
+
+if (res.status === 403) {
+  // Only log out for real auth errors, not disabled labs
+  const authErrors = ['Insufficient permissions', 'Invalid or expired token', 'No token provided'];
+  if (authErrors.includes(data.error)) {
     Auth.clear();
     window.location.href = '/login.html';
     return null;
   }
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  throw new Error(data.error || 'Access denied');
+}
+
+if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+return data;
 }
 
 // ── NavBar renderer ───────────────────────────────────
