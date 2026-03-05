@@ -146,4 +146,3 @@ cyberlab-online/
 ## ❤️ Acknowledgements
 
 This project is inspired by **TryHackMe‑style interactive cybersecurity labs** — a proven model for hands‑on learning.
-```
