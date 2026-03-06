@@ -1,10 +1,13 @@
 const express = require('express');
 const cors    = require('cors');
+const helmet  = require('helmet');
 const crypto  = require('crypto');
 const app     = express();
 const PORT    = process.env.PORT || 5004;
 
 app.use(cors());
+app.disable('x-powered-by');
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(express.json());
 
 const SECRET = 'weak_secret_123';

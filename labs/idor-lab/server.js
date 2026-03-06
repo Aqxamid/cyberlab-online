@@ -1,9 +1,12 @@
 const express = require('express');
 const cors    = require('cors');
+const helmet  = require('helmet');
 const app     = express();
 const PORT    = process.env.PORT || 5001;
 
 app.use(cors());
+app.disable('x-powered-by');
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

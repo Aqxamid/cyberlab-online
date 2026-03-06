@@ -1,9 +1,12 @@
 const express = require('express');
-const cors = require('cors');
-const app = express();
-const PORT = process.env.PORT || 5002;
+const cors    = require('cors');
+const helmet  = require('helmet');
+const app     = express();
+const PORT    = process.env.PORT || 5002;
 
 app.use(cors());
+app.disable('x-powered-by');
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -39,7 +42,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BankSecure Login - SQLi Lab</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com"><\/script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#1e3a5f 0%,#0f2340 100%);min-height:100vh;}
@@ -49,7 +52,6 @@ const HTML = `<!DOCTYPE html>
 </head>
 <body class="flex items-center justify-center p-4 py-12">
 <div class="w-full max-w-4xl space-y-6">
-
   <div class="bg-amber-50 border-l-4 border-amber-400 rounded-xl p-4 flex gap-3">
     <span class="text-2xl">⚠️</span>
     <div>
@@ -57,9 +59,7 @@ const HTML = `<!DOCTYPE html>
       <p class="text-amber-700 text-xs mt-1">This login is vulnerable to SQL injection. Use the payload buttons to bypass authentication and get the admin flag.</p>
     </div>
   </div>
-
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
     <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
       <div class="bg-gradient-to-r from-blue-800 to-blue-900 p-6 text-center">
         <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-2xl">🏦</span></div>
@@ -86,7 +86,6 @@ const HTML = `<!DOCTYPE html>
         <div id="v-result" class="hidden"></div>
       </div>
     </div>
-
     <div class="space-y-4">
       <div class="bg-white rounded-xl p-5 shadow">
         <h3 class="font-semibold text-gray-800 mb-3 text-sm">🔍 Simulated SQL Query</h3>
@@ -108,9 +107,7 @@ const HTML = `<!DOCTYPE html>
     </div>
   </div>
 </div>
-
 <script>
-  // Payload buttons - uses data attributes, no inline JS
   document.querySelectorAll('.payload-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('v-user').value = btn.dataset.u;
@@ -118,7 +115,6 @@ const HTML = `<!DOCTYPE html>
       doVulnLogin();
     });
   });
-
   document.getElementById('login-btn').addEventListener('click', doVulnLogin);
   document.getElementById('patch-btn').addEventListener('click', doPatchLogin);
 
@@ -127,46 +123,30 @@ const HTML = `<!DOCTYPE html>
     const p = document.getElementById('v-pass').value;
     document.getElementById('query-display').textContent = "SELECT * FROM users WHERE username='" + u + "' AND password='" + p + "'";
     try {
-      const r = await fetch('/api/vulnerable/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u, password: p })
-      });
+      const r = await fetch('/api/vulnerable/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p}) });
       const d = await r.json();
       const el = document.getElementById('v-result');
       el.classList.remove('hidden');
       if (d.bypassed) {
-        el.innerHTML = '<div class="bg-red-50 border border-red-300 rounded-lg p-3 text-sm">'
-          + '<p class="font-bold text-red-700">🚨 SQLi Bypass Successful!</p>'
-          + '<p class="text-red-600 text-xs mt-1">Logged in as: <strong>' + d.user.username + '</strong> (' + d.user.role + ')</p>'
-          + '<div class="mt-2 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded p-2 font-mono text-xs font-bold">🏁 ' + d.flag + '</div>'
-          + '</div>';
+        el.innerHTML = '<div class="bg-red-50 border border-red-300 rounded-lg p-3 text-sm"><p class="font-bold text-red-700">🚨 SQLi Bypass Successful!</p><p class="text-red-600 text-xs mt-1">Logged in as: <strong>' + d.user.username + '</strong> (' + d.user.role + ')</p><div class="mt-2 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded p-2 font-mono text-xs font-bold">🏁 ' + d.flag + '</div></div>';
       } else if (d.success) {
         el.innerHTML = '<div class="bg-green-50 border border-green-300 rounded-lg p-3 text-sm"><p class="text-green-700 font-semibold">✅ ' + d.message + '</p></div>';
       } else {
         el.innerHTML = '<div class="bg-gray-50 border border-gray-300 rounded-lg p-3 text-sm text-gray-600">❌ ' + d.message + '</div>';
       }
-    } catch(e) {
-      document.getElementById('v-result').innerHTML = '<p class="text-red-500 text-xs">Error: ' + e.message + '</p>';
-    }
+    } catch(e) { document.getElementById('v-result').innerHTML = '<p class="text-red-500 text-xs">Error: ' + e.message + '</p>'; }
   }
 
   async function doPatchLogin() {
     const u = document.getElementById('p-user').value;
     const p = document.getElementById('p-pass').value;
     try {
-      const r = await fetch('/api/patched/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u, password: p })
-      });
+      const r = await fetch('/api/patched/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p}) });
       const d = await r.json();
       document.getElementById('p-result').textContent = (r.ok ? '✅ ' : '❌ ') + JSON.stringify(d, null, 2);
-    } catch(e) {
-      document.getElementById('p-result').textContent = 'Error: ' + e.message;
-    }
+    } catch(e) { document.getElementById('p-result').textContent = 'Error: ' + e.message; }
   }
-</script>
+<\/script>
 </body></html>`;
 
 app.get('/', (req, res) => res.send(HTML));

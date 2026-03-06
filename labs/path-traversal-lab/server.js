@@ -1,13 +1,14 @@
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const app = express();
-const PORT = process.env.PORT || 5005;
+const cors    = require('cors');
+const helmet  = require('helmet');
+const app     = express();
+const PORT    = process.env.PORT || 5005;
 
 app.use(cors());
+app.disable('x-powered-by');
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(express.json());
 
-// Fake filesystem
 const fakeFiles = {
   'reports/q1.pdf':       'Q1 Financial Report - Revenue: $1.2M, Expenses: $800K',
   'reports/q2.pdf':       'Q2 Financial Report - Revenue: $1.5M, Expenses: $900K',
@@ -23,7 +24,6 @@ const fakeFiles = {
   '../.env':              'DB_PASSWORD=sup3rs3cr3t\nAPI_KEY=sk-prod-FLAG{traversed_the_path}',
 };
 
-// VULNERABLE — no path sanitization
 app.get('/api/vulnerable/download', (req, res) => {
   const file = req.query.file;
   if (!file) return res.status(400).json({ error: 'file parameter required' });
@@ -32,7 +32,6 @@ app.get('/api/vulnerable/download', (req, res) => {
   res.status(404).json({ error: `File not found: ${file}` });
 });
 
-// PATCHED — validates path stays within /reports/
 app.get('/api/patched/download', (req, res) => {
   const file = req.query.file || '';
   if (file.includes('..') || file.includes('/etc') || file.startsWith('/')) {
@@ -63,9 +62,7 @@ app.get('/', (req, res) => res.send(`<!DOCTYPE html>
     <span class="text-2xl flex-shrink-0">⚠️</span>
     <div><p class="font-semibold text-amber-800 text-sm">Path Traversal Lab — Intentionally Vulnerable File Server</p><p class="text-amber-700 text-xs mt-1">The download endpoint uses the filename directly without sanitization. Use <code class="bg-amber-100 px-1 rounded mono">../</code> sequences to escape the web root and access sensitive files.</p></div>
   </div>
-
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- File browser -->
     <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
       <h2 class="font-bold text-gray-800 mb-3 text-sm">📂 Available Files</h2>
       <p class="text-xs text-gray-400 mb-3">These are the "intended" files you can download:</p>
@@ -85,8 +82,6 @@ app.get('/', (req, res) => res.send(`<!DOCTYPE html>
         </div>
       </div>
     </div>
-
-    <!-- Main panel -->
     <div class="lg:col-span-2 space-y-4">
       <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
         <h2 class="font-bold text-gray-800 mb-1 flex items-center gap-2">⬇️ File Download <span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">VULNERABLE</span></h2>
@@ -98,7 +93,6 @@ app.get('/', (req, res) => res.send(`<!DOCTYPE html>
         <pre id="file-out">// Click a file or enter a path</pre>
         <div id="file-flag" class="flag hidden mt-3"></div>
       </div>
-
       <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
         <h2 class="font-bold text-gray-800 mb-3 flex items-center gap-2 text-sm">✅ Patched Endpoint <span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded">Path validation</span></h2>
         <div class="flex gap-2 mb-3">
