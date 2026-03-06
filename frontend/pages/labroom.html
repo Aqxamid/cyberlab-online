@@ -350,7 +350,7 @@
             (a) => `
       <div class="flex items-center justify-between py-1 border-b border-gray-900/50">
         <span class="${a.correct ? "text-green-400" : "text-red-400"}">${a.correct ? "✓" : "✗"}</span>
-        <span class="text-gray-600 font-mono text-xs truncate max-w-[160px]">${a.flag_submitted}</span>
+        <span class="text-gray-600 font-mono text-xs truncate max-w-[160px]">${a.correct ? '✓ correct' : '✗ wrong'}</span>
         <span class="text-gray-700 text-xs">${new Date(a.attempted_at).toLocaleTimeString()}</span>
       </div>
     `,

@@ -1,54 +1,32 @@
-# ════════════════════════════════════════════════════════════════════════════
-# CyberLab docker-compose.yml  —  Security-Hardened Version
-# ════════════════════════════════════════════════════════════════════════════
-
-# C2 FIX: All lab containers are on an internal Docker network.
-#         Lab ports are NOT exposed to 0.0.0.0 (the internet).
-#         Only frontend (3000) and backend (4000) are publicly accessible.
-#         Lab services are reached via the frontend/backend proxy — never directly.
-#
-# M4 FIX: All containers run as non-root user (UID 1001).
-#         Add "USER 1001" to each Dockerfile (see note at bottom of this file).
-
 networks:
-  # Public-facing network — only frontend and backend attach here
   public:
     driver: bridge
-  # Internal network — labs are isolated here, not reachable from the internet
-  internal:
-    driver: bridge
-    internal: true  # Docker blocks external routing to this network
 
 services:
 
-  # ── Frontend ────────────────────────────────────────────────────────────────
   frontend:
     build: ./frontend
     ports:
-      - "3000:3000"           # Public — only this port is internet-accessible
+      - "3000:3000"
     environment:
       - PORT=3000
-      - API_URL=${API_URL:-http://backend:4000}
-      # C2 FIX: Lab URLs use Docker service names (internal DNS), not exposed ports
-      - IDOR_URL=${IDOR_URL:-http://idor-lab:5001}
-      - SQLI_URL=${SQLI_URL:-http://sqli-lab:5002}
-      - XSS_URL=${XSS_URL:-http://xss-lab:5003}
-      - JWT_URL=${JWT_URL:-http://jwt-lab:5004}
-      - PATH_URL=${PATH_URL:-http://path-traversal-lab:5005}
+      - API_URL=${API_URL:-http://localhost:4000}
+      - IDOR_URL=${IDOR_URL:-http://localhost:5001}
+      - SQLI_URL=${SQLI_URL:-http://localhost:5002}
+      - XSS_URL=${XSS_URL:-http://localhost:5003}
+      - JWT_URL=${JWT_URL:-http://localhost:5004}
+      - PATH_URL=${PATH_URL:-http://localhost:5005}
     depends_on:
       - backend
     networks:
       - public
-      - internal   # Frontend needs internal access to proxy lab requests
     restart: unless-stopped
-    # M4 FIX: Run as non-root. Add "USER 1001" to frontend/Dockerfile
     user: "1001:1001"
 
-  # ── Backend ──────────────────────────────────────────────────────────────────
   backend:
     build: ./backend
     ports:
-      - "4000:4000"           # Public — API port accessible by the frontend
+      - "4000:4000"
     environment:
       - PORT=4000
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
@@ -61,70 +39,57 @@ services:
     restart: unless-stopped
     user: "1001:1001"
 
-  # ── IDOR Lab ─────────────────────────────────────────────────────────────────
-  # C2 FIX: No 'ports:' mapping — only reachable from internal Docker network
   idor-lab:
     build: ./labs/idor-lab
-    expose:
-      - "5001"                # Expose within Docker network only (no host binding)
+    ports:
+      - "5001:5001"
     environment:
       - PORT=5001
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     networks:
-      - internal
+      - public
     restart: unless-stopped
     user: "1001:1001"
 
-  # ── SQLi Lab ─────────────────────────────────────────────────────────────────
   sqli-lab:
     build: ./labs/sqli-lab
-    expose:
-      - "5002"
+    ports:
+      - "5002:5002"
     environment:
       - PORT=5002
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     networks:
-      - internal
+      - public
     restart: unless-stopped
     user: "1001:1001"
 
-  # ── XSS Lab ──────────────────────────────────────────────────────────────────
   xss-lab:
     build: ./labs/xss-lab
-    expose:
-      - "5003"
+    ports:
+      - "5003:5003"
     environment:
       - PORT=5003
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      # H4 FIX: Lab token secret for gating the /api/flag endpoint
-      - LAB_TOKEN_SECRET=${LAB_TOKEN_SECRET:?LAB_TOKEN_SECRET is required}
     networks:
-      - internal
+      - public
     restart: unless-stopped
     user: "1001:1001"
 
-  # ── JWT Lab ───────────────────────────────────────────────────────────────────
   jwt-lab:
     build: ./labs/jwt-lab
-    expose:
-      - "5004"
+    ports:
+      - "5004:5004"
     environment:
       - PORT=5004
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     networks:
-      - internal
+      - public
     restart: unless-stopped
     user: "1001:1001"
 
-  # ── Path Traversal Lab ────────────────────────────────────────────────────────
   path-traversal-lab:
     build: ./labs/path-traversal-lab
-    expose:
-      - "5005"
+    ports:
+      - "5005:5005"
     environment:
       - PORT=5005
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     networks:
-      - internal
+      - public
     restart: unless-stopped
     user: "1001:1001"
