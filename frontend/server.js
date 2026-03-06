@@ -27,13 +27,12 @@ app.listen(PORT, () => {
 });
 */ 
 
-const express    = require('express');
-const path       = require('path');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const app        = express();
-const PORT       = process.env.PORT || 3000;
+const express = require('express');
+const path    = require('path');
+const { createProxyMiddleware, responseInterceptor } = require('http-proxy-middleware');
+const app     = express();
+const PORT    = process.env.PORT || 3000;
 
-// ── Lab URL map ───────────────────────────────────────────────────────────────
 const LAB_TARGETS = {
   'idor-basics':       process.env.IDOR_URL || 'http://idor-lab:5001',
   'sql-injection-101': process.env.SQLI_URL || 'http://sqli-lab:5002',
@@ -46,12 +45,9 @@ function isInternal(url) {
   return !url.startsWith('https://') && !url.match(/^http:\/\/localhost/);
 }
 
-// ── Config.js ─────────────────────────────────────────────────────────────────
 app.get('/config.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
 
-  // For internal Docker URLs → use /proxy/:slug so browser hits localhost:3000
-  // For real public URLs (Render) → send the URL directly to the browser
   const labEntries = Object.entries(LAB_TARGETS)
     .map(([slug, url]) => `'${slug}': "${isInternal(url) ? `/proxy/${slug}` : url}"`)
     .join(',\n      ');
@@ -64,7 +60,8 @@ app.get('/config.js', (req, res) => {
   `);
 });
 
-// ── Proxy — only active for internal Docker URLs ──────────────────────────────
+// Proxy with fetch() injection — only active for internal Docker URLs
+// When deployed on Render, labs have public https:// URLs so proxy is skipped
 Object.entries(LAB_TARGETS).forEach(([slug, target]) => {
   if (isInternal(target)) {
     app.use(
@@ -72,8 +69,29 @@ Object.entries(LAB_TARGETS).forEach(([slug, target]) => {
       createProxyMiddleware({
         target,
         changeOrigin: true,
+        selfHandleResponse: true,
         pathRewrite: { [`^/proxy/${slug}`]: '' },
-        ws: true, // support websockets if any lab uses them
+        on: {
+          proxyRes: responseInterceptor(async (responseBuffer, proxyRes) => {
+            const contentType = proxyRes.headers['content-type'] || '';
+            if (!contentType.includes('text/html')) return responseBuffer;
+
+            const html = responseBuffer.toString('utf8');
+            const injection = `<script>
+  (function() {
+    const BASE = '/proxy/${slug}';
+    const _fetch = window.fetch;
+    window.fetch = function(url, opts) {
+      if (typeof url === 'string' && url.startsWith('/api/')) {
+        url = BASE + url;
+      }
+      return _fetch(url, opts);
+    };
+  })();
+</script>`;
+            return html.replace('<head>', '<head>' + injection);
+          }),
+        },
       })
     );
   }
