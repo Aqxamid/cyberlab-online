@@ -1,15 +1,16 @@
-const express = require('express');
-const router = express.Router();
+const express  = require('express');
+const router   = express.Router();
 const supabase = require('../db/supabase');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
-// GET /api/users — admin only
+// ── GET /api/users — admin only ───────────────────────────────────────────────
 router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, username, email, role, created_at')
+      .select('id, username, email, role, created_at') // Never select password_hash
       .order('created_at', { ascending: false });
+
     if (error) throw error;
     res.json(data);
   } catch (err) {
@@ -17,11 +18,19 @@ router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
   }
 });
 
-// PATCH /api/users/:id/role — admin only
+// ── PATCH /api/users/:id/role — admin only ────────────────────────────────────
 router.patch('/:id/role', authenticateToken, requireRole('admin'), async (req, res) => {
   const { role } = req.body;
   const validRoles = ['student', 'instructor', 'admin'];
-  if (!validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' });
+
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
+
+  // Prevent admin from accidentally demoting themselves
+  if (req.params.id === String(req.user.id) && role !== 'admin') {
+    return res.status(400).json({ error: 'You cannot change your own role' });
+  }
 
   try {
     const { data, error } = await supabase
@@ -30,6 +39,7 @@ router.patch('/:id/role', authenticateToken, requireRole('admin'), async (req, r
       .eq('id', req.params.id)
       .select('id, username, email, role')
       .single();
+
     if (error) throw error;
     res.json(data);
   } catch (err) {
