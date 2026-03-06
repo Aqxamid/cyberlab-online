@@ -26,19 +26,6 @@ let comments = [
 ];
 let nextId = 3;
 
-// ── H4 FIX: Token-gated flag endpoint ────────────────────────────────────────
-// Previously: GET /api/flag with NO authentication — anyone could curl it directly.
-// Now:        Requires a valid lab session token issued by the main backend.
-//             Students must actually trigger the XSS payload to retrieve the flag.
-//
-// How it works:
-//   1. When a student opens the XSS lab, the main backend issues a signed
-//      lab_token via POST /api/labs/xss-reflected/start (see backend/routes/labs.js)
-//   2. The frontend passes this token in the X-Lab-Token header for API calls.
-//   3. The XSS payload must fetch /api/flag with the valid token to get the flag.
-//      (The token is embedded in the page via the frontend — students discover it
-//       by inspecting the DOM or network tab, which is part of the learning.)
-
 function verifyLabToken(token) {
   try {
     const [payload64, sig] = token.split('.');
@@ -98,11 +85,7 @@ app.get('/api/patched/search', (req, res) => {
   res.json({ reflected: safe });
 });
 
-// ── Main lab UI (HTML with intentional XSS for teaching) ─────────────────────
-// The lab token is injected into the page so students can discover it via DevTools
-// and learn how tokens are passed between the frontend and APIs.
 app.get('/', (req, res) => {
-  // In production the frontend would pass the lab token via query param after auth
   const labToken = req.query.token || '';
 
   const HTML = `<!DOCTYPE html>

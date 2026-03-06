@@ -4,16 +4,12 @@ const crypto  = require('crypto');
 const app     = express();
 const PORT    = process.env.PORT || 5004;
 
-// L2 FIX: Restrict CORS to the frontend origin — NOT a wildcard.
-// Previously: app.use(cors()) — allowed any origin
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 app.use(cors({ origin: FRONTEND_URL }));
 
 app.use(express.json());
 
-// NOTE: The weak secret below is INTENTIONAL for the JWT lab.
-// It demonstrates the "weak secret" vulnerability. This is isolated in its own
-// container and is NOT the same secret used by the main backend (JWT_SECRET env var).
+
 const SECRET = 'weak_secret_123';
 
 function b64url(str) {
@@ -77,7 +73,6 @@ app.post('/api/patched/verify', (req, res) => {
   } catch(e) { res.status(400).json({ error: 'Parse error: ' + e.message }); }
 });
 
-// Lab UI — unchanged for UX
 const HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>

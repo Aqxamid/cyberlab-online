@@ -3,9 +3,6 @@ const cors    = require('cors');
 const app     = express();
 const PORT    = process.env.PORT || 5001;
 
-// L2 FIX: Restrict CORS to your frontend origin — NOT a wildcard.
-// Previously: app.use(cors()) which defaults to Access-Control-Allow-Origin: *
-// Now:        Only the CyberLab frontend can make cross-origin requests to this lab.
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 app.use(cors({ origin: FRONTEND_URL }));
 
@@ -39,11 +36,6 @@ app.get('/api/vulnerable/documents/:id', (req, res) => {
   d ? res.json(d) : res.status(404).json({ error: 'Not found' });
 });
 
-// ── Patched endpoints (fixed IDOR — teaching note) ────────────────────────────
-// M2 NOTE: The x-user-id header is still a simplified demo.
-// A real fix uses a signed JWT verified server-side, not a header the client can set freely.
-// This is intentional: students should compare both approaches and understand why
-// x-user-id alone is still spoofable — it teaches the importance of signed tokens.
 app.get('/api/patched/users/:id', (req, res) => {
   const myId = +req.headers['x-user-id'];
   const tid  = +req.params.id;
