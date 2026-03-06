@@ -4,11 +4,8 @@ const crypto  = require('crypto');
 const app     = express();
 const PORT    = process.env.PORT || 5004;
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-app.use(cors({ origin: FRONTEND_URL }));
-
+app.use(cors());
 app.use(express.json());
-
 
 const SECRET = 'weak_secret_123';
 
@@ -28,11 +25,9 @@ app.post('/api/login', (req, res) => {
   const users = { alice: { id: 1, role: 'user' }, admin: { id: 99, role: 'admin' } };
   const u = users[username];
   if (!u) return res.status(401).json({ error: 'Unknown user. Try: alice or admin' });
-
   const header  = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const payload = b64url(JSON.stringify({ id: u.id, username, role: u.role, iat: Math.floor(Date.now() / 1000) }));
   const sig     = hmacSign(header + '.' + payload);
-
   res.json({ token: `${header}.${payload}.${sig}`, user: { username, role: u.role } });
 });
 
@@ -44,13 +39,11 @@ app.post('/api/vulnerable/verify', (req, res) => {
     if (parts.length !== 3) return res.status(400).json({ error: 'Invalid token format' });
     const header  = JSON.parse(decB64url(parts[0]));
     const payload = JSON.parse(decB64url(parts[1]));
-
     if (header.alg === 'none') {
       const flag = payload.role === 'admin' ? (process.env.JWT_FLAG || 'FLAG{jwt_none_algorithm_bypass}') : null;
       return res.json({ valid: true, bypassed: true, header, payload,
         message: 'Algorithm confusion bypass! Role: ' + payload.role, flag });
     }
-
     const expected = hmacSign(parts[0] + '.' + parts[1]);
     if (expected !== parts[2]) return res.status(401).json({ valid: false, error: 'Invalid signature' });
     res.json({ valid: true, bypassed: false, header, payload, message: 'Valid token. Role: ' + payload.role });
@@ -110,7 +103,7 @@ textarea, input, select { background: #1e293b !important; color: #cbd5e1 !import
     </div>
     <div class="flex gap-2 mb-3">
       <button id="one-click-btn" class="text-sm bg-red-600 text-white px-4 py-2 rounded font-semibold">⚡ One-Click Exploit</button>
-      <button id="build-btn" class="text-xs bg-slate-700 text-gray-300 px-3 py-1.5 rounded">Build Token</button>
+      <button id="build-btn"     class="text-xs bg-slate-700 text-gray-300 px-3 py-1.5 rounded">Build Token</button>
     </div>
     <pre id="forged-token" class="text-xs font-mono">// Get a token first</pre>
   </div>
@@ -133,11 +126,13 @@ textarea, input, select { background: #1e293b !important; color: #cbd5e1 !import
 <script>
 function b64url(s){return btoa(unescape(encodeURIComponent(s))).replace(/=/g,'').replace(/\\+/g,'-').replace(/\\//g,'_');}
 function decB64url(s){try{return JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/')))));}catch{return null;}}
+
 document.getElementById('get-token-btn').addEventListener('click', doLogin);
 document.getElementById('one-click-btn').addEventListener('click', oneClickExploit);
 document.getElementById('build-btn').addEventListener('click', buildToken);
 document.getElementById('verify-vuln-btn').addEventListener('click', verifyVuln);
 document.getElementById('verify-patch-btn').addEventListener('click', verifyPatched);
+
 async function doLogin(){
   const u=document.getElementById('login-user').value;
   try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u})});

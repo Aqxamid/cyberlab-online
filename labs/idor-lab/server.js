@@ -3,13 +3,10 @@ const cors    = require('cors');
 const app     = express();
 const PORT    = process.env.PORT || 5001;
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-app.use(cors({ origin: FRONTEND_URL }));
-
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// ── Mock data (intentionally vulnerable for teaching purposes) ────────────────
 const users = {
   1:  { id: 1,  username: 'alice',   email: 'alice@corp.io',   role: 'employee', department: 'HR' },
   2:  { id: 2,  username: 'bob',     email: 'bob@corp.io',     role: 'employee', department: 'Engineering' },
@@ -19,14 +16,13 @@ const users = {
 };
 
 const documents = {
-  1:  { id: 1,  owner_id: 1,  title: 'Q1 Report',        content: "Alice's Q1 review.",         classification: 'internal' },
+  1:  { id: 1,  owner_id: 1,  title: 'Q1 Report',         content: "Alice's Q1 review.",        classification: 'internal' },
   2:  { id: 2,  owner_id: 2,  title: 'Project Roadmap',   content: "Bob's engineering roadmap.", classification: 'internal' },
   3:  { id: 3,  owner_id: 3,  title: 'Campaign Brief',    content: "Charlie's campaign brief.",  classification: 'internal' },
   42: { id: 42, owner_id: 99, title: 'Admin Credentials', content: `CONFIDENTIAL — ${process.env.IDOR_DOC_FLAG || 'FLAG{idor_docs_exposed_42}'}`, classification: 'top-secret' },
 };
 
-// ── Vulnerable endpoints (intentional IDOR for teaching) ─────────────────────
-app.get('/api/vulnerable/users/:id',     (req, res) => {
+app.get('/api/vulnerable/users/:id', (req, res) => {
   const u = users[+req.params.id];
   u ? res.json(u) : res.status(404).json({ error: 'Not found' });
 });
@@ -54,7 +50,6 @@ app.get('/api/patched/documents/:id', (req, res) => {
   res.json(d);
 });
 
-// ── Lab UI (same HTML as before — unchanged for UX) ───────────────────────────
 app.get('/', (req, res) => res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -86,8 +81,8 @@ app.get('/', (req, res) => res.send(`<!DOCTYPE html>
         <button onclick="fetchUser()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">Fetch</button>
       </div>
       <div class="flex gap-2 mb-4 flex-wrap">
-        <button onclick="setUid(1)" class="text-xs bg-gray-100 px-2 py-1 rounded">ID 1 (you)</button>
-        <button onclick="setUid(2)" class="text-xs bg-gray-100 px-2 py-1 rounded">ID 2</button>
+        <button onclick="setUid(1)"  class="text-xs bg-gray-100 px-2 py-1 rounded">ID 1 (you)</button>
+        <button onclick="setUid(2)"  class="text-xs bg-gray-100 px-2 py-1 rounded">ID 2</button>
         <button onclick="setUid(99)" class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">ID 99 🔴</button>
       </div>
       <pre id="user-out">// Click Fetch</pre>
@@ -101,7 +96,7 @@ app.get('/', (req, res) => res.send(`<!DOCTYPE html>
         <button onclick="fetchDoc()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">Fetch</button>
       </div>
       <div class="flex gap-2 mb-4 flex-wrap">
-        <button onclick="setDid(1)" class="text-xs bg-gray-100 px-2 py-1 rounded">Doc 1</button>
+        <button onclick="setDid(1)"  class="text-xs bg-gray-100 px-2 py-1 rounded">Doc 1</button>
         <button onclick="setDid(42)" class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">Doc 42 🔴</button>
       </div>
       <pre id="doc-out">// Click Fetch</pre>
@@ -110,7 +105,7 @@ app.get('/', (req, res) => res.send(`<!DOCTYPE html>
     <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm lg:col-span-2">
       <h2 class="font-bold text-gray-800 mb-1 flex items-center gap-2">🛡️ Patched Endpoint Comparison <span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded">FIXED</span></h2>
       <p class="text-xs text-gray-400 mb-2">Try the same IDs here. Notice the ownership check blocks unauthorized access.</p>
-      <p class="text-xs text-amber-600 mb-4">⚠️ Teaching note: x-user-id is still spoofable. Real auth uses a signed JWT — this demo shows <em>ownership checking</em>, not authentication.</p>
+      <p class="text-xs text-amber-600 mb-4">⚠️ Teaching note: x-user-id is still spoofable. Real auth uses a signed JWT.</p>
       <div class="grid grid-cols-3 gap-3 mb-3">
         <div><label class="text-xs text-gray-500 block mb-1">Your ID (x-user-id)</label><input id="my-id" type="number" value="1" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
         <div><label class="text-xs text-gray-500 block mb-1">Target User ID</label><input id="p-uid" type="number" value="99" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
