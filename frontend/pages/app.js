@@ -61,7 +61,12 @@ async function apiFetch(path, options = {}, _retry = false) {
     return null;
   }
 
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+  if (data.errors && data.errors.length) {
+    throw new Error(data.errors.map(e => e.msg).join('\n'));
+  }
+  throw new Error(data.error || `HTTP ${res.status}`);
+}
   return data;
 }
 
