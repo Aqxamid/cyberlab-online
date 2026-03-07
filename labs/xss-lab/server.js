@@ -1,11 +1,22 @@
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = process.env.PORT || 5003;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ── Rate limit lab API endpoints ─────────────────────────────
+const labLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests to the lab. Slow down and read the theory!' },
+});
+app.use('/api', labLimiter);
 
 let comments = [
   { id:1, author:'alice', text:'Great article! Really helpful content.', timestamp: new Date(Date.now()-3600000).toISOString() },
@@ -237,7 +248,6 @@ const HTML = `<!DOCTYPE html>
 
 app.get('/', (req, res) => res.send(HTML));
 
-// Reset endpoint for the "clear comments" button
 const defaultComments = () => [
   { id:1, author:'alice', text:'Great article! Really helpful content.', timestamp: new Date(Date.now()-3600000).toISOString() },
   { id:2, author:'bob',   text:'Thanks for sharing this.', timestamp: new Date(Date.now()-1800000).toISOString() },

@@ -1,11 +1,22 @@
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = process.env.PORT || 5004;
 
 app.use(cors());
 app.use(express.json());
+
+// ── Rate limit lab API endpoints ─────────────────────────────
+const labLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests to the lab. Slow down and read the theory!' },
+});
+app.use('/api', labLimiter);
 
 const SECRET = 'weak_secret_123';
 

@@ -62,27 +62,30 @@
   <script src="/app.js"></script>
   <script>
     if (!Auth.requireAuth()) throw new Error();
-    const user = Auth.getUser();
-    if (!['instructor','admin'].includes(user.role)) {
+    const currentUser = Auth.getUser();
+    if (!['instructor', 'admin'].includes(currentUser.role)) {
       window.location.href = '/dashboard.html';
     }
     renderNavBar();
 
     async function loadAll() {
+      // Stats
       try {
         const stats = await apiFetch('/api/stats/admin');
-        document.getElementById('a-total-users').textContent = stats.totalUsers;
+        document.getElementById('a-total-users').textContent  = stats.totalUsers;
         document.getElementById('a-active-users').textContent = stats.activeUsers;
         document.getElementById('a-labs-enabled').textContent = `${stats.enabledLabs}/${stats.totalLabs}`;
         document.getElementById('a-success-rate').textContent = stats.successRate + '%';
       } catch (err) { console.error(err); }
 
+      // Labs
       try {
         const labs = await apiFetch('/api/labs');
         renderLabsTable(labs);
       } catch (err) { console.error(err); }
 
-      if (user.role === 'admin') {
+      // Users (admin only)
+      if (currentUser.role === 'admin') {
         document.getElementById('users-section').classList.remove('hidden');
         try {
           const users = await apiFetch('/api/users');
@@ -108,16 +111,18 @@
           <tbody class="divide-y divide-gray-900/50">
             ${labs.map(lab => `
               <tr>
-                <td class="py-3 text-white font-bold">${lab.title}</td>
-                <td class="py-3"><span class="px-2 py-0.5 rounded border ${difficultyBadge(lab.difficulty)}">${lab.difficulty}</span></td>
-                <td class="py-3 text-yellow-500">${lab.points}</td>
-                <td class="py-3 text-gray-500">${lab.category}</td>
+                <td class="py-3 text-white font-bold">${escapeHtml(lab.title)}</td>
+                <td class="py-3"><span class="px-2 py-0.5 rounded border ${difficultyBadge(lab.difficulty)}">${escapeHtml(lab.difficulty)}</span></td>
+                <td class="py-3 text-yellow-500">${escapeHtml(String(lab.points))}</td>
+                <td class="py-3 text-gray-500">${escapeHtml(lab.category)}</td>
                 <td class="py-3">
                   <span class="text-xs ${lab.enabled ? 'text-green-400' : 'text-red-500'}">${lab.enabled ? '● Active' : '○ Disabled'}</span>
                 </td>
                 <td class="py-3">
-                  <button onclick="toggleLab(${lab.id})" 
-                    class="text-xs border ${lab.enabled ? 'border-red-700 text-red-400 hover:bg-red-900/20' : 'border-green-700 text-green-400 hover:bg-green-900/20'} px-3 py-1 rounded transition-colors" id="toggle-${lab.id}">
+                  <button
+                    onclick="toggleLab('${escapeHtml(lab.uuid)}')"
+                    class="text-xs border ${lab.enabled ? 'border-red-700 text-red-400 hover:bg-red-900/20' : 'border-green-700 text-green-400 hover:bg-green-900/20'} px-3 py-1 rounded transition-colors"
+                    id="toggle-${escapeHtml(lab.uuid)}">
                     ${lab.enabled ? 'Disable' : 'Enable'}
                   </button>
                 </td>
@@ -128,17 +133,18 @@
       `;
     }
 
-    async function toggleLab(id) {
-      const btn = document.getElementById(`toggle-${id}`);
+    // toggleLab now uses lab.uuid — not lab.id
+    async function toggleLab(uuid) {
+      const btn = document.getElementById(`toggle-${uuid}`);
       btn.textContent = '...';
       btn.disabled = true;
       try {
-        await apiFetch(`/api/labs/${id}/toggle`, { method: 'PATCH' });
+        await apiFetch(`/api/labs/${uuid}/toggle`, { method: 'PATCH' });
         showToast('Lab status updated', 'success');
         const labs = await apiFetch('/api/labs');
         renderLabsTable(labs);
       } catch (err) {
-        showToast('Failed to toggle lab', 'error');
+        showToast(err.message || 'Failed to toggle lab', 'error');
         btn.disabled = false;
       }
     }
@@ -153,22 +159,54 @@
               <th class="text-left pb-3">Email</th>
               <th class="text-left pb-3">Role</th>
               <th class="text-left pb-3">Joined</th>
+              <th class="text-left pb-3">Change Role</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-900/50">
             ${users.map(u => `
               <tr>
-                <td class="py-3 text-white">${u.username}</td>
-                <td class="py-3 text-gray-500">${u.email}</td>
+                <td class="py-3 text-white">${escapeHtml(u.username)}</td>
+                <td class="py-3 text-gray-500">${escapeHtml(u.email)}</td>
                 <td class="py-3">
-                  <span class="px-2 py-0.5 rounded border text-xs ${roleBadge(u.role)}">${u.role}</span>
+                  <span class="px-2 py-0.5 rounded border text-xs ${roleBadge(u.role)}">${escapeHtml(u.role)}</span>
                 </td>
                 <td class="py-3 text-gray-600">${new Date(u.created_at).toLocaleDateString()}</td>
+                <td class="py-3">
+                  <select
+                    onchange="changeRole('${escapeHtml(u.uuid)}', this)"
+                    data-prev="${escapeHtml(u.role)}"
+                    class="text-xs bg-black/60 border border-gray-700 rounded px-2 py-1 text-gray-300 focus:outline-none focus:border-cyan-600 transition-colors"
+                  >
+                    <option value="student"    ${u.role === 'student'    ? 'selected' : ''}>student</option>
+                    <option value="instructor" ${u.role === 'instructor' ? 'selected' : ''}>instructor</option>
+                    <option value="admin"      ${u.role === 'admin'      ? 'selected' : ''}>admin</option>
+                  </select>
+                </td>
               </tr>
             `).join('')}
           </tbody>
         </table>
       `;
+    }
+
+    // changeRole uses user.uuid — not user.id
+    async function changeRole(uuid, select) {
+      const newRole = select.value;
+      const prev    = select.dataset.prev;
+      select.disabled = true;
+      try {
+        await apiFetch(`/api/users/${uuid}/role`, {
+          method: 'PATCH',
+          body:   JSON.stringify({ role: newRole }),
+        });
+        select.dataset.prev = newRole;
+        showToast(`Role updated to ${newRole}`, 'success');
+      } catch (err) {
+        select.value    = prev; // revert on failure
+        showToast(err.message || 'Failed to update role', 'error');
+      } finally {
+        select.disabled = false;
+      }
     }
 
     loadAll();

@@ -2,10 +2,12 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Crash loudly at startup if JWT_SECRET is not set in environment
-if (!JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is not set. Set it in your Render environment variables.');
-  process.exit(1);
+// ── Startup guard: crash immediately if secret is missing/default ─
+if (!JWT_SECRET || JWT_SECRET === 'cyberlab_secret_change_in_production') {
+  throw new Error(
+    '[FATAL] JWT_SECRET is not set or is still the default placeholder.\n' +
+    'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"'
+  );
 }
 
 function authenticateToken(req, res, next) {
@@ -14,11 +16,16 @@ function authenticateToken(req, res, next) {
 
   if (!token) return res.status(401).json({ error: 'Access token required' });
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
-    req.user = user;
-    next();
-  });
+  jwt.verify(
+    token,
+    JWT_SECRET,
+    { algorithms: ['HS256'] }, // prevents alg:none and algorithm confusion attacks
+    (err, user) => {
+      if (err) return res.status(403).json({ error: 'Invalid or expired token' });
+      req.user = user;
+      next();
+    }
+  );
 }
 
 function requireRole(...roles) {

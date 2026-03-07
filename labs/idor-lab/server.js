@@ -1,31 +1,62 @@
-const express = require('express');
-const cors = require('cors');
-const app = express();
+const express   = require('express');
+const cors      = require('cors');
+const rateLimit = require('express-rate-limit');
+const app  = express();
 const PORT = process.env.PORT || 5001;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ── Rate limit lab API endpoints ─────────────────────────────
+const labLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests to the lab. Slow down and read the theory!' },
+});
+app.use('/api', labLimiter);
+
+// ── Lab data (fictional — no real credentials) ────────────────
 const users = {
   1:  { id:1,  username:'alice',   email:'alice@corp.io',   role:'employee', department:'HR' },
   2:  { id:2,  username:'bob',     email:'bob@corp.io',     role:'employee', department:'Engineering' },
   3:  { id:3,  username:'charlie', email:'charlie@corp.io', role:'employee', department:'Marketing' },
-  99: { id:99, username:'admin',   email:'admin@corp.io',   role:'admin',    department:'Executive', secret:'FLAG{idor_is_dangerous_123}' }
+  99: { id:99, username:'admin',   email:'admin@corp.io',   role:'admin',    department:'Executive', secret:'FLAG{idor_is_dangerous_123}' },
 };
+
 const documents = {
-  1:  { id:1,  owner_id:1,  title:'Q1 Report',         content:"Alice's Q1 review. Rating: 4/5.",     classification:'internal' },
-  2:  { id:2,  owner_id:2,  title:'Project Roadmap',   content:"Bob's engineering roadmap for 2025.", classification:'internal' },
-  3:  { id:3,  owner_id:3,  title:'Campaign Brief',    content:"Charlie's marketing campaign brief.", classification:'internal' },
-  42: { id:42, owner_id:99, title:'Admin Credentials', content:'CONFIDENTIAL — FLAG{idor_docs_exposed_42}', classification:'top-secret' }
+  1:  { id:1,  owner_id:1,  title:'Q1 Report',        content:"Alice's Q1 review. Rating: 4/5.",           classification:'internal' },
+  2:  { id:2,  owner_id:2,  title:'Project Roadmap',   content:"Bob's engineering roadmap for 2025.",        classification:'internal' },
+  3:  { id:3,  owner_id:3,  title:'Campaign Brief',    content:"Charlie's marketing campaign brief.",        classification:'internal' },
+  42: { id:42, owner_id:99, title:'Admin Credentials', content:'CONFIDENTIAL — FLAG{idor_docs_exposed_42}', classification:'top-secret' },
 };
 
-app.get('/api/vulnerable/users/:id',    (req,res)=>{ const u=users[+req.params.id]; u ? res.json(u) : res.status(404).json({error:'Not found'}); });
-app.get('/api/vulnerable/documents/:id',(req,res)=>{ const d=documents[+req.params.id]; d ? res.json(d) : res.status(404).json({error:'Not found'}); });
-app.get('/api/patched/users/:id', (req,res)=>{ const myId=+req.headers['x-user-id'],tid=+req.params.id; if(!myId) return res.status(401).json({error:'Missing x-user-id header'}); if(myId!==tid) return res.status(403).json({error:'Access denied: you can only view your own profile'}); const {secret,...safe}=users[tid]||{}; safe.id ? res.json(safe) : res.status(404).json({error:'Not found'}); });
-app.get('/api/patched/documents/:id',   (req,res)=>{ const myId=+req.headers['x-user-id']; if(!myId) return res.status(401).json({error:'Missing x-user-id header'}); const d=documents[+req.params.id]; if(!d) return res.status(404).json({error:'Not found'}); if(d.owner_id!==myId) return res.status(403).json({error:'Access denied: not your document'}); res.json(d); });
+// ── VULNERABLE endpoints (intentional for teaching) ───────────
+app.get('/api/vulnerable/users/:id',     (req, res) => { const u = users[+req.params.id];     u ? res.json(u) : res.status(404).json({ error: 'Not found' }); });
+app.get('/api/vulnerable/documents/:id', (req, res) => { const d = documents[+req.params.id]; d ? res.json(d) : res.status(404).json({ error: 'Not found' }); });
 
-app.get('/', (req,res) => res.send(`<!DOCTYPE html>
+// ── PATCHED endpoints (correct implementation) ────────────────
+app.get('/api/patched/users/:id', (req, res) => {
+  const myId = +req.headers['x-user-id'], tid = +req.params.id;
+  if (!myId) return res.status(401).json({ error: 'Missing x-user-id header' });
+  if (myId !== tid) return res.status(403).json({ error: 'Access denied: you can only view your own profile' });
+  const { secret, ...safe } = users[tid] || {};
+  safe.id ? res.json(safe) : res.status(404).json({ error: 'Not found' });
+});
+
+app.get('/api/patched/documents/:id', (req, res) => {
+  const myId = +req.headers['x-user-id'];
+  if (!myId) return res.status(401).json({ error: 'Missing x-user-id header' });
+  const d = documents[+req.params.id];
+  if (!d) return res.status(404).json({ error: 'Not found' });
+  if (d.owner_id !== myId) return res.status(403).json({ error: 'Access denied: not your document' });
+  res.json(d);
+});
+
+// ── UI (unchanged from original) ─────────────────────────────
+app.get('/', (req, res) => res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -56,9 +87,9 @@ app.get('/', (req,res) => res.send(`<!DOCTYPE html>
         <button onclick="fetchUser()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Fetch</button>
       </div>
       <div class="flex gap-2 mb-4 flex-wrap">
-        <button onclick="setUid(1)" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">ID 1 (you)</button>
-        <button onclick="setUid(2)" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">ID 2</button>
-        <button onclick="setUid(3)" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">ID 3</button>
+        <button onclick="setUid(1)"  class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">ID 1 (you)</button>
+        <button onclick="setUid(2)"  class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">ID 2</button>
+        <button onclick="setUid(3)"  class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">ID 3</button>
         <button onclick="setUid(99)" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded font-semibold">ID 99 🔴</button>
       </div>
       <pre id="user-out">// Click Fetch</pre>
@@ -72,9 +103,9 @@ app.get('/', (req,res) => res.send(`<!DOCTYPE html>
         <button onclick="fetchDoc()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Fetch</button>
       </div>
       <div class="flex gap-2 mb-4 flex-wrap">
-        <button onclick="setDid(1)" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Doc 1</button>
-        <button onclick="setDid(2)" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Doc 2</button>
-        <button onclick="setDid(3)" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Doc 3</button>
+        <button onclick="setDid(1)"  class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Doc 1</button>
+        <button onclick="setDid(2)"  class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Doc 2</button>
+        <button onclick="setDid(3)"  class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded">Doc 3</button>
         <button onclick="setDid(42)" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded font-semibold">Doc 42 🔴</button>
       </div>
       <pre id="doc-out">// Click Fetch</pre>

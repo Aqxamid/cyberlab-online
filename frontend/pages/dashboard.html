@@ -18,15 +18,13 @@
 </head>
 <body class="min-h-screen grid-bg text-gray-300">
 
-<!-- FIX 2: Prevent back-button cache from showing this page when logged out -->
+<!-- Early auth check — uses sessionStorage (not localStorage) to match Auth in app.js -->
 <script>
-  // Run before anything else — if no token, redirect immediately
-  if (!localStorage.getItem('cl_token')) {
+  if (!sessionStorage.getItem('cl_token')) {
     window.location.replace('/login.html');
   }
-  // Also re-check whenever this page is restored from bfcache (back/forward)
   window.addEventListener('pageshow', function(e) {
-    if (e.persisted && !localStorage.getItem('cl_token')) {
+    if (e.persisted && !sessionStorage.getItem('cl_token')) {
       window.location.replace('/login.html');
     }
   });
@@ -70,7 +68,6 @@
       <span class="text-xs text-cyan-500" id="s-progress-label">0 / 0</span>
     </div>
     <div class="w-full bg-gray-900 rounded-full h-2 overflow-hidden">
-      <!-- FIX 1: cap percentage at 100% with Math.min, overflow-hidden on parent -->
       <div class="bg-gradient-to-r from-cyan-600 to-cyan-400 h-2 rounded-full transition-all duration-700" id="s-progress-bar" style="width:0%"></div>
     </div>
   </div>
@@ -99,7 +96,7 @@
     </div>
   </div>
 
-  <!-- Admin panel (instructors/admins) -->
+  <!-- Admin/Instructor section -->
   <div id="admin-section" class="hidden mt-8">
     <div class="bg-black/40 border border-yellow-900/40 rounded-lg p-5">
       <h2 class="orbitron text-sm font-bold text-yellow-400 mb-4 tracking-wide">⚡ PLATFORM STATS</h2>
@@ -137,51 +134,51 @@
   renderNavBar();
 
   const user = Auth.getUser();
+  // textContent — safe, no XSS risk on username
   document.getElementById('welcome-title').textContent = `WELCOME, ${user.username.toUpperCase()}`;
-  document.getElementById('welcome-sub').textContent = `Role: ${user.role} | Building your security skills...`;
+  document.getElementById('welcome-sub').textContent   = `Role: ${user.role} | Building your security skills...`;
 
   async function loadStats() {
     try {
       const stats = await apiFetch('/api/stats/student');
 
       document.getElementById('s-completed').textContent = stats.completed;
-      document.getElementById('s-points').textContent = stats.totalPoints;
-      document.getElementById('s-accuracy').textContent = stats.accuracy + '%';
-      document.getElementById('s-attempts').textContent = stats.totalAttempts;
+      document.getElementById('s-points').textContent    = stats.totalPoints;
+      document.getElementById('s-accuracy').textContent  = stats.accuracy + '%';
+      document.getElementById('s-attempts').textContent  = stats.totalAttempts;
 
-      // FIX 1: cap at 100% so progress bar never overflows
       const pct = stats.totalLabs
         ? Math.min(100, Math.round((stats.completed / stats.totalLabs) * 100))
         : 0;
-      document.getElementById('s-progress-bar').style.width = pct + '%';
-      document.getElementById('s-progress-label').textContent = `${stats.completed} / ${stats.totalLabs}`;
+      document.getElementById('s-progress-bar').style.width    = pct + '%';
+      document.getElementById('s-progress-label').textContent  = `${stats.completed} / ${stats.totalLabs}`;
 
-      // Recent completions
+      // Recent completions — all user data escaped before going into innerHTML
       const recentList = document.getElementById('recent-list');
-      if (stats.recentCompletions.length === 0) {
+      if (!stats.recentCompletions.length) {
         recentList.innerHTML = '<p class="text-gray-600 text-xs">No completions yet. <a href="/labs.html" class="text-cyan-600 hover:text-cyan-400">Start a lab →</a></p>';
       } else {
         recentList.innerHTML = stats.recentCompletions.map(c => `
           <div class="flex items-center justify-between py-1.5 border-b border-gray-900/50">
-            <span class="text-gray-300 text-xs">${c.labs?.title || 'Lab'}</span>
+            <span class="text-gray-300 text-xs">${escapeHtml(c.labs?.title || 'Lab')}</span>
             <div class="flex items-center gap-2">
-              <span class="text-xs px-1.5 py-0.5 rounded border ${difficultyBadge(c.labs?.difficulty)}">${c.labs?.difficulty || ''}</span>
-              <span class="text-yellow-500 text-xs">+${c.labs?.points || 0}pts</span>
+              <span class="text-xs px-1.5 py-0.5 rounded border ${difficultyBadge(c.labs?.difficulty)}">${escapeHtml(c.labs?.difficulty || '')}</span>
+              <span class="text-yellow-500 text-xs">+${escapeHtml(String(c.labs?.points || 0))}pts</span>
             </div>
           </div>
         `).join('');
       }
 
-      // Categories
+      // Categories — category names come from DB but escape anyway
       const catList = document.getElementById('category-list');
-      const cats = Object.entries(stats.completionsByCategory);
-      if (cats.length === 0) {
+      const cats    = Object.entries(stats.completionsByCategory);
+      if (!cats.length) {
         catList.innerHTML = '<p class="text-gray-600">None yet</p>';
       } else {
         catList.innerHTML = cats.map(([cat, count]) => `
           <div class="flex justify-between items-center">
-            <span class="text-gray-400">${cat}</span>
-            <span class="text-cyan-400 font-bold">${count}</span>
+            <span class="text-gray-400">${escapeHtml(cat)}</span>
+            <span class="text-cyan-400 font-bold">${escapeHtml(String(count))}</span>
           </div>
         `).join('');
       }
@@ -196,9 +193,9 @@
     document.getElementById('admin-section').classList.remove('hidden');
     try {
       const stats = await apiFetch('/api/stats/admin');
-      document.getElementById('a-users').textContent = stats.totalUsers;
+      document.getElementById('a-users').textContent  = stats.totalUsers;
       document.getElementById('a-active').textContent = stats.activeUsers;
-      document.getElementById('a-labs').textContent = `${stats.enabledLabs}/${stats.totalLabs}`;
+      document.getElementById('a-labs').textContent   = `${stats.enabledLabs}/${stats.totalLabs}`;
       document.getElementById('a-success').textContent = stats.successRate + '%';
     } catch (err) {
       console.error('Admin stats error:', err);

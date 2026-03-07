@@ -93,7 +93,7 @@
             <p class="text-gray-500">$ curl http://localhost:5000/api/vulnerable/users/<span class="text-yellow-400">1</span></p>
             <p class="text-green-400">{"id":1,"username":"alice","role":"student"}</p>
             <p class="text-gray-500 mt-3">$ curl http://localhost:5000/api/vulnerable/users/<span class="text-red-400">99</span></p>
-            <p class="text-cyan-300">{"id":99,"username":"admin","role":"admin","secret":"<span class="text-yellow-300">FLAG{idor_is_dangerous_123}</span>"}</p>
+            <p class="text-cyan-300">{"id":99,"username":"admin","role":"admin","secret":"<span class="text-yellow-300">FLAG{idor_is_###########}</span>"}</p>
             <p class="text-gray-600 mt-3">$ <span class="terminal-cursor"></span></p>
           </div>
         </div>
@@ -137,7 +137,7 @@
             <tr class="border-b border-gray-900/50"><td class="py-2 text-white">alice</td><td>password123</td><td><span class="text-cyan-500 text-xs">student</span></td></tr>
             <tr class="border-b border-gray-900/50"><td class="py-2 text-white">bob</td><td>password123</td><td><span class="text-cyan-500 text-xs">student</span></td></tr>
             <tr class="border-b border-gray-900/50"><td class="py-2 text-white">instructor1</td><td>password123</td><td><span class="text-yellow-400 text-xs">instructor</span></td></tr>
-            <tr><td class="py-2 text-white">admin</td><td>password123</td><td><span class="text-red-400 text-xs">admin</span></td></tr>
+            <!--<tr><td class="py-2 text-white">admin</td><td>password123</td><td><span class="text-red-400 text-xs">admin</span></td></tr>-->
           </tbody>
         </table>
       </div>
@@ -145,7 +145,7 @@
   </main>
 
   <footer class="relative z-20 border-t border-cyan-900/30 py-6 text-center text-gray-600 text-xs">
-    🛡️ CyberLab — Interactive Cybersecurity Training Platform
+    🛡️ CyberLab — Interactive Cybersecurity Training Platform by Allen Ronn Parado
   </footer>
 
   <script src="/config.js"></script>

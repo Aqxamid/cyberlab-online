@@ -1,11 +1,22 @@
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = process.env.PORT || 5002;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ── Rate limit lab API endpoints ─────────────────────────────
+const labLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests to the lab. Slow down and read the theory!' },
+});
+app.use('/api', labLimiter);
 
 const fakeDb = [
   { id:1, username:'alice', password:'alice123',    role:'user',  secret:null },
@@ -110,7 +121,6 @@ const HTML = `<!DOCTYPE html>
 </div>
 
 <script>
-  // Payload buttons - uses data attributes, no inline JS
   document.querySelectorAll('.payload-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('v-user').value = btn.dataset.u;
