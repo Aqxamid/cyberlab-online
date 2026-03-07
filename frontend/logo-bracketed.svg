@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" width="240" height="60" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softglow">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Opening bracket -->
+  <text x="4" y="46" font-family="monospace" font-size="52" font-weight="bold" fill="#00ffff" filter="url(#glow)" opacity="0.9">[</text>
+
+  <!-- CYBER -->
+  <text x="30" y="30" font-family="'Orbitron', monospace" font-size="16" font-weight="900" letter-spacing="2" fill="#ffffff">CYBER</text>
+  <!-- LAB with cyan -->
+  <text x="30" y="50" font-family="'Orbitron', monospace" font-size="16" font-weight="900" letter-spacing="2" fill="#00ffff" filter="url(#softglow)">LAB</text>
+
+  <!-- Closing bracket -->
+  <text x="148" y="46" font-family="monospace" font-size="52" font-weight="bold" fill="#00ffff" filter="url(#glow)" opacity="0.9">]</text>
+
+  <!-- Tagline -->
+  <text x="178" y="28" font-family="monospace" font-size="8" fill="#00ffff" opacity="0.5" letter-spacing="1">ONLINE</text>
+  <text x="178" y="42" font-family="monospace" font-size="8" fill="#ffffff" opacity="0.3" letter-spacing="1">v2.0</text>
+</svg>
