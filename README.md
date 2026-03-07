@@ -193,8 +193,8 @@ npm start
 ## 🔒 Security
 
 - JWT authentication with HS256 algorithm pinning (prevents alg:none attacks)
-- Rate limiting on auth endpoints (5 attempts / 15 min) and all API routes
-- bcrypt password hashing at cost factor 12
+- Rate limiting on auth endpoints and all API routes
+- bcrypt password hashing
 - UUIDs on all public-facing API endpoints (no sequential integer IDs)
 - HTTP security headers via Helmet
 - XSS protection on all user-supplied data rendered in the frontend
