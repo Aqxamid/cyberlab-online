@@ -1,0 +1,9 @@
+# robots.txt — CyberLab Online
+# https://cyberlab-frontend.onrender.com/robots.txt
+
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /api/
+
+Sitemap: https://cyberlab-frontend.onrender.com/sitemap.xml
