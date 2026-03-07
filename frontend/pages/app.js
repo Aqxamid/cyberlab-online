@@ -25,8 +25,6 @@ const Auth = {
   },
 };
 
-// ── XSS-safe HTML escaper ─────────────────────────────────────
-// Always use this when inserting user-supplied data into innerHTML.
 function escapeHtml(str) {
   if (str == null) return '';
   return String(str)
@@ -57,7 +55,7 @@ async function apiFetch(path, options = {}) {
 }
 
 // ── NavBar renderer ───────────────────────────────────────────
-// username and role are escaped before going into innerHTML (XSS fix)
+// username and role are escaped before going into innerHTML
 function renderNavBar() {
   const user = Auth.getUser();
   const nav  = document.getElementById('navbar');
@@ -113,7 +111,7 @@ function showToast(msg, type = 'info') {
     error:   'bg-red-900 border-red-600 text-red-300',
   };
   toast.className = `fixed bottom-5 right-5 z-50 px-4 py-3 rounded border text-sm font-mono max-w-sm ${colors[type] || colors.info} animate-pulse`;
-  toast.textContent = msg; // textContent not innerHTML — XSS safe
+  toast.textContent = msg; // textContent not innerHTML
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3500);
 }

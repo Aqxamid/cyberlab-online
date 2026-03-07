@@ -16,7 +16,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const { data: labs, error } = await supabase
       .from('labs')
       .select('uuid, slug, title, description, category, difficulty, points, enabled')
-      .order('id'); // order by internal id but never expose it
+      .order('id');
 
     if (error) throw error;
 
@@ -149,8 +149,6 @@ router.get('/:slug/progress',
   }
 );
 
-// ── PATCH /api/labs/:uuid/toggle — instructor/admin ───────────
-// UUID in URL — sequential integer id never exposed
 router.patch('/:uuid/toggle',
   authenticateToken,
   requireRole('instructor', 'admin'),

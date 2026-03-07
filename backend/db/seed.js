@@ -1,8 +1,3 @@
-/**
- * CyberLab Seed Script
- * Run AFTER npm install: node db/seed.js
- * This inserts demo users with proper bcrypt hashes.
- */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const bcrypt = require('bcrypt');
 const { createClient } = require('@supabase/supabase-js');

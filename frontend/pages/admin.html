@@ -133,7 +133,6 @@
       `;
     }
 
-    // toggleLab now uses lab.uuid — not lab.id
     async function toggleLab(uuid) {
       const btn = document.getElementById(`toggle-${uuid}`);
       btn.textContent = '...';
@@ -189,7 +188,6 @@
       `;
     }
 
-    // changeRole uses user.uuid — not user.id
     async function changeRole(uuid, select) {
       const newRole = select.value;
       const prev    = select.dataset.prev;

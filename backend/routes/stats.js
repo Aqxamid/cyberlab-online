@@ -6,7 +6,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 // ── GET /api/stats/student — personal stats ───────────────────
 router.get('/student', authenticateToken, async (req, res) => {
   try {
-    // All queries use user_uuid from the verified JWT — never req.user.id
+    // All queries use user_uuid from the verified JWT
     const { data: completions } = await supabase
       .from('lab_completions')
       .select('lab_uuid, completed_at, labs(title, category, difficulty, points)')
@@ -66,7 +66,7 @@ router.get('/admin', authenticateToken, requireRole('instructor', 'admin'), asyn
     const { data: completions } = await supabase.from('lab_completions').select('user_uuid, lab_uuid, completed_at');
     const { data: attempts }    = await supabase.from('lab_attempts').select('user_uuid, correct, attempted_at');
 
-    // Active users (had an attempt in last 7 days)
+    // Active users
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const activeUsers = new Set(
