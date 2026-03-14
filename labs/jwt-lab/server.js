@@ -43,7 +43,7 @@ async function requireLabAuth(req, res, next) {
 
   if (!token) {
     return res.send(`<!DOCTYPE html><html><head><script>
-      var t = sessionStorage.getItem('cl_token');
+      var t = localStorage.getItem('cl_token');
       if (t) window.location.href = window.location.pathname + '?token=' + encodeURIComponent(t);
       else   window.location.href = '${FRONTEND_URL}/login.html';
     <\/script></head><body></body></html>`);
