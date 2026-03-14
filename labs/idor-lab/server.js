@@ -325,7 +325,7 @@ pre  { background: #0f172a; color: #94a3b8; padding: 1rem; border-radius: 8px; f
             <div class="url-wrap" onclick="document.getElementById('url-patched').focus()">
               <span class="url-scheme">https://</span>
               <input type="text" class="url-input" id="url-patched"
-                value="corp-portal.internal/api/patched/users/99"
+                value="corp-portal.internal/api/patched/users/1"
                 spellcheck="false" autocomplete="off"
                 onkeydown="if(event.key==='Enter'){fetchPatched()}"
               >
