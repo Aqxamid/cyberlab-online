@@ -95,6 +95,7 @@ function roleBadge(role) {
 // ── Logout — calls backend to blacklist the token first ───────
 // This makes logout immediate: the token is invalidated server-side so
 // the 5-second lab re-check will hit /api/auth/me, get a 401, and redirect.
+// localStorage broadcast ensures all other open tabs redirect instantly too.
 async function logout() {
   try {
     await apiFetch('/api/auth/logout', { method: 'POST' });
@@ -102,8 +103,19 @@ async function logout() {
     // Fail silently — still clear local session regardless
   }
   Auth.clear();
+  localStorage.setItem('cl_logout', Date.now());
   window.location.href = '/index.html';
 }
+
+// ── Cross-tab logout listener ─────────────────────────────────
+// When logout() fires in any tab, all other open tabs receive this
+// storage event and redirect to login immediately.
+window.addEventListener('storage', (e) => {
+  if (e.key === 'cl_logout') {
+    Auth.clear();
+    window.location.href = '/login.html';
+  }
+});
 
 function difficultyBadge(diff) {
   if (diff === 'advanced')     return 'border-red-600 text-red-400 bg-red-500/10';
