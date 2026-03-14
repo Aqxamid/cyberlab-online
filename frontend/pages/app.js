@@ -9,6 +9,7 @@ const Auth = {
   setSession(token, user) {
     sessionStorage.setItem('cl_token', token);
     sessionStorage.setItem('cl_user', JSON.stringify(user));
+    localStorage.removeItem('cl_logout'); // clear any leftover logout signal on new login
   },
   clear() {
     sessionStorage.removeItem('cl_token');
@@ -95,7 +96,7 @@ function roleBadge(role) {
 // ── Logout — calls backend to blacklist the token first ───────
 // This makes logout immediate: the token is invalidated server-side so
 // the 5-second lab re-check will hit /api/auth/me, get a 401, and redirect.
-// localStorage broadcast ensures all other open tabs redirect instantly too.
+// localStorage broadcast ensures all other open frontend tabs redirect instantly too.
 async function logout() {
   try {
     await apiFetch('/api/auth/logout', { method: 'POST' });
@@ -108,8 +109,10 @@ async function logout() {
 }
 
 // ── Cross-tab logout listener ─────────────────────────────────
-// When logout() fires in any tab, all other open tabs receive this
-// storage event and redirect to login immediately.
+// When logout() fires in any frontend tab, all other open frontend tabs
+// receive this storage event and redirect to login immediately.
+// Note: this only works between tabs on the same origin (frontend).
+// Lab tabs (different ports) use the 5-second /api/auth/me re-check instead.
 window.addEventListener('storage', (e) => {
   if (e.key === 'cl_logout') {
     Auth.clear();
