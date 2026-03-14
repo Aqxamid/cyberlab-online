@@ -77,10 +77,10 @@ const fakeFiles = {
   'readme.txt':          'FileServer v1.0 — Upload and download your documents.',
   'docs/report.pdf':     'Q1 Financial Report — Revenue: $1.2M',
   'docs/meeting.txt':    'Meeting notes from 2025-01-15: Discussed Q1 targets.',
-  '../secret.txt':       'FLAG{path_traversal_escape}',
-  '../../etc/passwd':    'FLAG{path_traversal_deep} root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:...',
-  '/etc/passwd':         'FLAG{path_traversal_absolute} root:x:0:0:root:/root:/bin/bash',
-  '../../../etc/shadow':  'FLAG{path_traversal_shadow} root:$6$xyz:19000:0:99999:7:::',
+  '../secret.txt':       'FLAG{traversed_the_path} This is a secret file outside the uploads directory.',
+  '../../etc/passwd':    'FLAG{traversed_the_path} root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:...',
+  '/etc/passwd':         'FLAG{traversed_the_path} root:x:0:0:root:/root:/bin/bash',
+  '../../../etc/shadow':  'FLAG{traversed_the_path} root:$6$xyz:19000:0:99999:7:::',
 };
 
 // VULNERABLE: no sanitization
