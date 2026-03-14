@@ -20,6 +20,8 @@ This platform delivers interactive vulnerability labs, role‑based dashboards, 
 * ✅ Backend API for labs, stats, users, and authentication
 * ✅ Supabase integration for persistent database storage
 * ✅ Docker/Docker‑Compose support for local development
+* ✅ Token blacklist — logout immediately invalidates JWT across all open tabs and lab sessions
+* ✅ Lab access control — live lab environments require a valid session token to access
 * ⭐ Extensible lab architecture using isolated containers
 
 > ⚠️ **Note:** JWT tokens are stored in **sessionStorage** rather than HttpOnly cookies intentionally, to allow labs to simulate real-world XSS/JS-based attacks and practice session handling.
@@ -52,6 +54,8 @@ Each lab runs as its own isolated service and teaches a specific vulnerability c
 
 Each lab includes a **vulnerable endpoint** to exploit and a **patched endpoint** to compare against, so students can see both the attack and the fix side by side.
 
+> 🔒 All lab environments require an active CyberLab session. Accessing a lab URL directly without being logged in redirects to the login page. Logging out invalidates access within 5 seconds across all open lab tabs.
+
 ---
 
 ## 🗂 Project Structure
@@ -59,7 +63,7 @@ Each lab includes a **vulnerable endpoint** to exploit and a **patched endpoint*
 ```
 cyberlab-online/
 ├─ backend/                 # Express API & Supabase client
-│  ├─ middleware/            # JWT authentication
+│  ├─ middleware/            # JWT authentication + token blacklist check
 │  ├─ routes/               # Auth, Labs, Stats, Users
 │  └─ server.js
 ├─ frontend/                # Static pages + scripts
@@ -79,98 +83,6 @@ cyberlab-online/
 
 ---
 
-## 🚀 Quick Start
-
-### 1. Set Up Supabase
-
-1. Create a free Supabase project at [supabase.com](https://supabase.com)
-2. Run the SQL in `backend/db/schema.sql` to set up tables
-3. Run `db/migration_add_uuids.sql` to add UUID support
-4. Copy your **Supabase URL** and **anon key**
-
----
-
-### 2. Configure Environment
-
-```bash
-cp .env.example .env
-```
-
-Fill in your `.env`:
-
-```env
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_anon_key
-JWT_SECRET=your_generated_secret
-FRONTEND_URL=http://localhost:3000
-NODE_ENV=development
-```
-
-Generate a secure JWT secret:
-```bash
-node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
-```
-
----
-
-### 3. Install Dependencies
-
-```bash
-cd backend && npm install
-cd ../labs/idor-lab && npm install
-cd ../jwt-lab && npm install
-cd ../sqli-lab && npm install
-cd ../xss-lab && npm install
-cd ../path-traversal-lab && npm install
-```
-
----
-
-### 4. Run with Docker
-
-From the repository root:
-
-```bash
-docker compose up --build
-```
-
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:4000 |
-| IDOR Lab | http://localhost:5001 |
-| SQLi Lab | http://localhost:5002 |
-| XSS Lab | http://localhost:5003 |
-| JWT Lab | http://localhost:5004 |
-| Path Traversal Lab | http://localhost:5005 |
-
----
-
-### 5. Run Locally (without Docker)
-
-**Backend:**
-```bash
-cd backend
-npm install
-npm start
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm start
-```
-
-**Lab (example):**
-```bash
-cd labs/idor-lab
-npm install
-npm start
-```
-
----
-
 ## 🧠 API Overview
 
 | Endpoint | Method | Auth | Description |
@@ -178,6 +90,7 @@ npm start
 | `/api/auth/register` | POST | — | Create account |
 | `/api/auth/login` | POST | — | Login & return JWT |
 | `/api/auth/me` | GET | ✅ | Get current user |
+| `/api/auth/logout` | POST | ✅ | Invalidate token (blacklist) |
 | `/api/labs` | GET | ✅ | List all labs |
 | `/api/labs/:slug` | GET | ✅ | Get single lab |
 | `/api/labs/:slug/attempt` | POST | ✅ | Submit a flag |
@@ -193,14 +106,16 @@ npm start
 ## 🔒 Security
 
 - JWT authentication with HS256 algorithm pinning (prevents alg:none attacks)
+- Token blacklist on logout — tokens are invalidated server-side so stolen tokens and open lab tabs are rejected within 5 seconds
 - Rate limiting on auth endpoints and all API routes
-- bcrypt password hashing
+- bcrypt password hashing (12 rounds)
 - UUIDs on all public-facing API endpoints (no sequential integer IDs)
 - HTTP security headers via Helmet
 - XSS protection on all user-supplied data rendered in the frontend
 - Request body size limits to prevent memory exhaustion
 - Generic error messages to prevent username enumeration
 - Timing-safe login to prevent user existence detection
+- Lab environments protected by server-side JWT verification — direct URL access without a valid session is blocked
 
 ---
 
