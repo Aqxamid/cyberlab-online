@@ -4,17 +4,17 @@ const API_BASE = window.CYBERLAB_API || 'https://cyberlab-backend-to2l.onrender.
 
 // ── Auth ──────────────────────────────────────────────────────
 const Auth = {
-  getToken: () => localStorage.getItem('cl_token'),
-  getUser:  () => { try { return JSON.parse(localStorage.getItem('cl_user')); } catch { return null; } },
+  getToken: () => sessionStorage.getItem('cl_token'),
+  getUser:  () => { try { return JSON.parse(sessionStorage.getItem('cl_user')); } catch { return null; } },
   setSession(token, user) {
-    localStorage.setItem('cl_token', token);
-    localStorage.setItem('cl_user', JSON.stringify(user));
+    sessionStorage.setItem('cl_token', token);
+    sessionStorage.setItem('cl_user', JSON.stringify(user));
   },
   clear() {
-    localStorage.removeItem('cl_token');
-    localStorage.removeItem('cl_user');
+    sessionStorage.removeItem('cl_token');
+    sessionStorage.removeItem('cl_user');
   },
-  isLoggedIn:  () => !!localStorage.getItem('cl_token'),
+  isLoggedIn:  () => !!sessionStorage.getItem('cl_token'),
   requireAuth() {
     if (!Auth.isLoggedIn()) { window.location.href = '/login.html'; return false; }
     return true;
