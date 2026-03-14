@@ -122,4 +122,24 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// ── POST /api/auth/logout ─────────────────────────────────────
+// Blacklists the token so lab re-checks and all other requests immediately fail.
+// Client should also clear its own session (handled in app.js logout()).
+router.post('/logout', authenticateToken, async (req, res) => {
+  try {
+    const token     = req.headers['authorization'].split(' ')[1];
+    const expiresAt = new Date(req.user.exp * 1000); // JWT exp claim → Date
+
+    await supabase
+      .from('invalidated_tokens')
+      .insert([{ token, expires_at: expiresAt }]);
+
+    res.json({ ok: true });
+  } catch (err) {
+    // Even if the DB insert fails, still respond OK — client will clear session anyway
+    console.error('Logout blacklist error:', err);
+    res.json({ ok: true });
+  }
+});
+
 module.exports = router;

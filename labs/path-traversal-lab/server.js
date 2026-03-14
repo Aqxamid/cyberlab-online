@@ -1,138 +1,240 @@
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const rateLimit = require('express-rate-limit');
-const app = express();
+const cors    = require('cors');
+const path    = require('path');
+const jwt     = require('jsonwebtoken');
+const https   = require('https');
+const http    = require('http');
+
+const app  = express();
 const PORT = process.env.PORT || 5005;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// ── Rate limit lab API endpoints ─────────────────────────────
-const labLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests to the lab. Slow down and read the theory!' },
-});
-app.use('/api', labLimiter);
+// ── CyberLab Auth Guard ──────────────────────────────────────
+const JWT_SECRET   = process.env.JWT_SECRET   || 'cyberlab_secret_change_in_production';
+const BACKEND_URL  = process.env.BACKEND_URL  || 'http://localhost:4000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-// Fake filesystem
+function nodeFetch(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const lib    = parsed.protocol === 'https:' ? https : http;
+    const req    = lib.request({
+      hostname: parsed.hostname,
+      port:     parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path:     parsed.pathname + parsed.search,
+      method:   options.method || 'GET',
+      headers:  options.headers || {},
+    }, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => resolve({ ok: res.statusCode >= 200 && res.statusCode < 300 }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function requireLabAuth(req, res, next) {
+  if (req.path.startsWith('/api/')) return next();
+
+  const token = req.query.token;
+
+  if (!token) {
+    return res.send(`<!DOCTYPE html><html><head><script>
+      var t = sessionStorage.getItem('cl_token');
+      if (t) window.location.href = window.location.pathname + '?token=' + encodeURIComponent(t);
+      else   window.location.href = '${FRONTEND_URL}/login.html';
+    <\/script></head><body></body></html>`);
+  }
+
+  try {
+    jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.redirect(`${FRONTEND_URL}/login.html`);
+  }
+
+  try {
+    const r = await nodeFetch(`${BACKEND_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return res.redirect(`${FRONTEND_URL}/login.html`);
+  } catch (err) {
+    console.warn('[path-lab] Backend unreachable for auth check:', err.message);
+  }
+
+  next();
+}
+
+app.use(requireLabAuth);
+// ─────────────────────────────────────────────────────────────
+
+// ── Fake filesystem for the lab ───────────────────────────────
 const fakeFiles = {
-  'reports/q1.pdf':       'Q1 Financial Report - Revenue: $1.2M, Expenses: $800K',
-  'reports/q2.pdf':       'Q2 Financial Report - Revenue: $1.5M, Expenses: $900K',
-  'reports/annual.pdf':   'Annual Report 2024 - Total Revenue: $5.4M',
-  'public/about.txt':     'FileServer Corp — Secure Document Storage',
-  'public/help.txt':      'Contact support@fileserver.corp for help.',
-  '../etc/passwd':        'root:x:0:0:root:/root:/bin/bash\nalice:x:1000:1000::/home/alice:/bin/sh\nbob:x:1001:1001::/home/bob:/bin/sh',
-  '../../etc/passwd':     'root:x:0:0:root:/root:/bin/bash\nalice:x:1000:1000::/home/alice:/bin/sh',
-  '../../../etc/passwd':  'root:x:0:0:root:/root:/bin/bash\nalice:x:1000:1000::/home/alice:/bin/sh',
-  '../../../../etc/passwd':'root:x:0:0:root:/root:/bin/bash\nalice:x:1000:1000::/home/alice:/bin/sh',
-  '../config/.env':       'DB_PASSWORD=sup3rs3cr3t\nAPI_KEY=sk-prod-FLAG{traversed_the_path}\nSECRET=hunter2',
-  '../../config/.env':    'DB_PASSWORD=sup3rs3cr3t\nAPI_KEY=sk-prod-FLAG{traversed_the_path}\nSECRET=hunter2',
-  '../.env':              'DB_PASSWORD=sup3rs3cr3t\nAPI_KEY=sk-prod-FLAG{traversed_the_path}',
+  'welcome.txt':         'Welcome to FileServer! Your files are safe here.',
+  'readme.txt':          'FileServer v1.0 — Upload and download your documents.',
+  'docs/report.pdf':     'Q1 Financial Report — Revenue: $1.2M',
+  'docs/meeting.txt':    'Meeting notes from 2025-01-15: Discussed Q1 targets.',
+  '../secret.txt':       'FLAG{path_traversal_escape}',
+  '../../etc/passwd':    'FLAG{path_traversal_deep} root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:...',
+  '/etc/passwd':         'FLAG{path_traversal_absolute} root:x:0:0:root:/root:/bin/bash',
+  '../../../etc/shadow':  'FLAG{path_traversal_shadow} root:$6$xyz:19000:0:99999:7:::',
 };
 
-// VULNERABLE — no path sanitization
-app.get('/api/vulnerable/download', (req, res) => {
-  const file = req.query.file;
-  if (!file) return res.status(400).json({ error: 'file parameter required' });
-  const content = fakeFiles[file];
-  if (content) return res.json({ file, content, flag: content.includes('FLAG{') ? content.match(/FLAG\{[^}]+\}/)[0] : null });
-  res.status(404).json({ error: `File not found: ${file}` });
-});
+// VULNERABLE: no sanitization
+app.get('/api/vulnerable/file', (req, res) => {
+  const filename = req.query.file;
+  if (!filename) return res.status(400).json({ error: 'file param required' });
 
-// PATCHED — validates path stays within /reports/
-app.get('/api/patched/download', (req, res) => {
-  const file = req.query.file || '';
-  if (file.includes('..') || file.includes('/etc') || file.startsWith('/')) {
-    return res.status(400).json({ error: 'Invalid file path: directory traversal detected' });
+  // Simulate path traversal — check against fake filesystem
+  const content = fakeFiles[filename] || fakeFiles[filename.replace(/\\/g, '/')];
+  if (content) {
+    const flag = content.match(/FLAG\{[^}]+\}/)?.[0] || null;
+    return res.json({ filename, content, flag });
   }
-  const allowed = ['reports/q1.pdf', 'reports/q2.pdf', 'reports/annual.pdf', 'public/about.txt'];
-  if (!allowed.includes(file)) return res.status(403).json({ error: 'Access denied: file not in allowed list' });
-  const content = fakeFiles[file];
-  res.json({ file, content });
+  res.status(404).json({ error: `File not found: ${filename}` });
 });
 
-app.get('/', (req, res) => res.send(`<!DOCTYPE html>
+// PATCHED: normalise and jail to /files/
+app.get('/api/patched/file', (req, res) => {
+  const filename = req.query.file;
+  if (!filename) return res.status(400).json({ error: 'file param required' });
+
+  // Resolve and check it stays within the allowed directory
+  const base    = '/files';
+  const resolved = path.posix.normalize('/' + filename);
+  if (!resolved.startsWith(base + '/') && resolved !== base) {
+    return res.status(403).json({ error: 'Access denied: path is outside the allowed directory' });
+  }
+
+  // Safe files only
+  const safeFiles = { '/files/welcome.txt': fakeFiles['welcome.txt'], '/files/readme.txt': fakeFiles['readme.txt'], '/files/docs/report.pdf': fakeFiles['docs/report.pdf'], '/files/docs/meeting.txt': fakeFiles['docs/meeting.txt'] };
+  const content = safeFiles[resolved];
+  if (content) return res.json({ filename: resolved, content });
+  res.status(404).json({ error: `File not found: ${resolved}` });
+});
+
+app.get('/', (req, res) => {
+  const token       = req.query.token || '';
+  const backendUrl  = BACKEND_URL;
+  const frontendUrl = FRONTEND_URL;
+
+  res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FileServer — Path Traversal Lab</title>
 <script src="https://cdn.tailwindcss.com"><\/script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
-<style>body{font-family:'Inter',sans-serif;background:#f8fafc;} pre{background:#1e293b;color:#94a3b8;padding:1rem;border-radius:8px;font-size:0.75rem;overflow-x:auto;white-space:pre-wrap;} .mono{font-family:'JetBrains Mono',monospace;} .flag{background:#fef9c3;border:2px solid #eab308;color:#713f12;padding:0.75rem;border-radius:8px;font-family:monospace;font-weight:700;}</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Inter',sans-serif;background:#f1f5f9;}
+.mono{font-family:'JetBrains Mono',monospace;}
+pre{background:#0f172a;color:#94a3b8;padding:1rem;border-radius:8px;font-size:0.75rem;overflow-x:auto;white-space:pre-wrap;}
+.flag{background:#fef9c3;border:2px solid #eab308;color:#713f12;padding:0.75rem;border-radius:8px;font-family:monospace;font-weight:700;}
+</style>
 </head>
-<body>
-<nav class="bg-gray-800 text-white px-6 py-3 flex items-center justify-between shadow-lg">
-  <div class="flex items-center gap-2"><span class="text-xl">📁</span><span class="font-bold">FileServer Corp</span><span class="text-xs bg-red-500 text-white px-2 py-0.5 rounded ml-2">Path Traversal Lab</span></div>
-  <span class="text-gray-400 text-xs">Secure Document Portal</span>
-</nav>
-<div class="max-w-5xl mx-auto px-4 py-8 space-y-6">
-  <div class="bg-amber-50 border-l-4 border-amber-400 rounded-xl p-4 flex gap-3">
-    <span class="text-2xl flex-shrink-0">⚠️</span>
-    <div><p class="font-semibold text-amber-800 text-sm">Path Traversal Lab — Intentionally Vulnerable File Server</p><p class="text-amber-700 text-xs mt-1">The download endpoint uses the filename directly without sanitization. Use <code class="bg-amber-100 px-1 rounded mono">../</code> sequences to escape the web root and access sensitive files.</p></div>
+<body class="min-h-screen p-4 py-8">
+<div class="max-w-4xl mx-auto space-y-6">
+  <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+    <div class="flex items-center gap-3 mb-1">
+      <span class="text-3xl">📁</span>
+      <div>
+        <h1 class="text-xl font-bold text-gray-800">FileServer</h1>
+        <p class="text-xs text-gray-400">Secure Document Storage — v1.0</p>
+      </div>
+      <span class="ml-auto text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-medium">PATH TRAVERSAL LAB</span>
+    </div>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- File browser -->
-    <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-      <h2 class="font-bold text-gray-800 mb-3 text-sm">📂 Available Files</h2>
-      <p class="text-xs text-gray-400 mb-3">These are the "intended" files you can download:</p>
-      <div class="space-y-1">
-        <button onclick="setFile('reports/q1.pdf')" class="w-full text-left text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded flex items-center gap-2 transition-colors">📄 reports/q1.pdf</button>
-        <button onclick="setFile('reports/q2.pdf')" class="w-full text-left text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded flex items-center gap-2 transition-colors">📄 reports/q2.pdf</button>
-        <button onclick="setFile('reports/annual.pdf')" class="w-full text-left text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded flex items-center gap-2 transition-colors">📄 reports/annual.pdf</button>
-        <button onclick="setFile('public/about.txt')" class="w-full text-left text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 px-3 py-2 rounded flex items-center gap-2 transition-colors">📄 public/about.txt</button>
+  <div class="bg-amber-50 border-l-4 border-amber-400 rounded-xl p-4 flex gap-3">
+    <span class="text-2xl flex-shrink-0">⚠️</span>
+    <div>
+      <p class="font-semibold text-amber-800 text-sm">Path Traversal Lab — Intentionally Vulnerable</p>
+      <p class="text-amber-700 text-xs mt-1">The vulnerable endpoint doesn't sanitize the <code class="font-mono">file</code> parameter. Try escaping the uploads directory using <code class="font-mono">../</code> sequences to read secret files and get the flag.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Vulnerable -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-red-200">
+      <h2 class="font-bold text-gray-800 mb-1 flex items-center gap-2">
+        📂 File Viewer
+        <span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">VULNERABLE</span>
+      </h2>
+      <p class="text-xs text-gray-400 mb-4 mono">GET /api/vulnerable/file?file=...</p>
+      <input id="v-file" type="text" value="welcome.txt" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-red-400 mono" placeholder="filename or ../path">
+      <div class="flex gap-2 flex-wrap mb-3">
+        <button class="file-btn text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded mono" data-f="welcome.txt">welcome.txt</button>
+        <button class="file-btn text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded mono" data-f="docs/report.pdf">docs/report.pdf</button>
+        <button class="file-btn text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded mono font-semibold" data-f="../secret.txt">../secret.txt 🔴</button>
+        <button class="file-btn text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded mono font-semibold" data-f="../../etc/passwd">../../etc/passwd 🔴</button>
       </div>
-      <div class="border-t border-gray-100 mt-4 pt-3">
-        <p class="text-xs text-red-500 font-semibold mb-2">🎯 Attack Payloads:</p>
-        <div class="space-y-1">
-          <button onclick="setFile('../etc/passwd')" class="w-full text-left text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded mono transition-colors">../etc/passwd</button>
-          <button onclick="setFile('../../../../etc/passwd')" class="w-full text-left text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded mono transition-colors">../../../../etc/passwd</button>
-          <button onclick="setFile('../config/.env')" class="w-full text-left text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded mono transition-colors font-semibold">../config/.env 🏁</button>
-          <button onclick="setFile('../../config/.env')" class="w-full text-left text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded mono transition-colors">../../config/.env</button>
-        </div>
-      </div>
+      <button id="v-fetch-btn" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm font-semibold transition-colors mb-3">Read File</button>
+      <pre id="v-out">// Click Read File</pre>
+      <div id="v-flag" class="flag hidden mt-3"></div>
     </div>
 
-    <!-- Main panel -->
-    <div class="lg:col-span-2 space-y-4">
-      <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-        <h2 class="font-bold text-gray-800 mb-1 flex items-center gap-2">⬇️ File Download <span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">VULNERABLE</span></h2>
-        <p class="text-xs text-gray-400 mb-4 mono">GET /api/vulnerable/download?file=...</p>
-        <div class="flex gap-2 mb-4">
-          <input id="file-path" type="text" value="reports/q1.pdf" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm mono focus:outline-none focus:ring-2 focus:ring-blue-400">
-          <button onclick="fetchFile()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Download</button>
-        </div>
-        <pre id="file-out">// Click a file or enter a path</pre>
-        <div id="file-flag" class="flag hidden mt-3"></div>
+    <!-- Patched -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-green-200">
+      <h2 class="font-bold text-gray-800 mb-1 flex items-center gap-2">
+        🛡️ Patched Viewer
+        <span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded">FIXED</span>
+      </h2>
+      <p class="text-xs text-gray-400 mb-4 mono">GET /api/patched/file?file=...</p>
+      <input id="p-file" type="text" value="welcome.txt" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-green-400 mono" placeholder="filename">
+      <div class="flex gap-2 flex-wrap mb-3">
+        <button class="pfile-btn text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded mono" data-f="welcome.txt">welcome.txt</button>
+        <button class="pfile-btn text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded mono" data-f="docs/report.pdf">docs/report.pdf</button>
+        <button class="pfile-btn text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded mono" data-f="../secret.txt">../secret.txt (blocked)</button>
+        <button class="pfile-btn text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded mono" data-f="../../etc/passwd">../../etc/passwd (blocked)</button>
       </div>
-
-      <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-        <h2 class="font-bold text-gray-800 mb-3 flex items-center gap-2 text-sm">✅ Patched Endpoint <span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded">Path validation</span></h2>
-        <div class="flex gap-2 mb-3">
-          <input id="p-file-path" type="text" placeholder="Try same traversal payloads..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm mono focus:outline-none focus:ring-2 focus:ring-green-400">
-          <button onclick="fetchPatched()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Try Patched</button>
-        </div>
-        <pre id="p-file-out">// Patched version detects and blocks traversal sequences</pre>
-      </div>
+      <button id="p-fetch-btn" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-semibold transition-colors mb-3">Read File (Safe)</button>
+      <pre id="p-out">// Jails to /files/ — traversal blocked</pre>
     </div>
   </div>
 </div>
+
 <script>
-function setFile(v){document.getElementById('file-path').value=v;fetchFile();}
-async function fetchFile(){
-  const f=document.getElementById('file-path').value,el=document.getElementById('file-out'),fl=document.getElementById('file-flag');
-  try{const r=await fetch('/api/vulnerable/download?file='+encodeURIComponent(f));const d=await r.json();el.textContent=JSON.stringify(d,null,2);if(d.flag){fl.textContent='🏁 Flag found: '+d.flag;fl.classList.remove('hidden');}else fl.classList.add('hidden');}catch(e){el.textContent='Error: '+e.message;}
+document.querySelectorAll('.file-btn').forEach(b => b.addEventListener('click', () => { document.getElementById('v-file').value=b.dataset.f; fetchVuln(); }));
+document.querySelectorAll('.pfile-btn').forEach(b => b.addEventListener('click', () => { document.getElementById('p-file').value=b.dataset.f; fetchPatched(); }));
+document.getElementById('v-fetch-btn').addEventListener('click', fetchVuln);
+document.getElementById('p-fetch-btn').addEventListener('click', fetchPatched);
+
+async function fetchVuln(){
+  const f=document.getElementById('v-file').value, el=document.getElementById('v-out'), fl=document.getElementById('v-flag');
+  try{
+    const r=await fetch('/api/vulnerable/file?file='+encodeURIComponent(f)), d=await r.json();
+    el.textContent=JSON.stringify(d,null,2);
+    if(d.flag){ fl.textContent='🏁 Flag found: '+d.flag; fl.classList.remove('hidden'); } else fl.classList.add('hidden');
+  }catch(e){ el.textContent='Error: '+e.message; }
 }
 async function fetchPatched(){
-  const f=document.getElementById('p-file-path').value,el=document.getElementById('p-file-out');
-  try{const r=await fetch('/api/patched/download?file='+encodeURIComponent(f));const d=await r.json();el.textContent=(r.ok?'✅ ':'🚫 HTTP '+r.status+' — ')+JSON.stringify(d,null,2);}catch(e){el.textContent='Error: '+e.message;}
+  const f=document.getElementById('p-file').value, el=document.getElementById('p-out');
+  try{
+    const r=await fetch('/api/patched/file?file='+encodeURIComponent(f)), d=await r.json();
+    el.textContent=(r.ok?'✅ ':'🚫 HTTP '+r.status+' — ')+JSON.stringify(d,null,2);
+  }catch(e){ el.textContent='Error: '+e.message; }
 }
-fetchFile();
 <\/script>
-</body></html>`));
+
+<!-- ── 30-second auth re-check ── -->
+<script>
+(function(){
+  var token    = new URLSearchParams(window.location.search).get('token');
+  var BACKEND  = '${backendUrl}';
+  var FRONTEND = '${frontendUrl}';
+  function recheck(){
+    if(!token){ window.location.href=FRONTEND+'/login.html'; return; }
+    fetch(BACKEND+'/api/auth/me',{headers:{'Authorization':'Bearer '+token}})
+      .then(function(r){ if(!r.ok) window.location.href=FRONTEND+'/login.html'; })
+      .catch(function(){});
+  }
+  setTimeout(function loop(){ recheck(); setTimeout(loop,5000); },5000);
+})();
+<\/script>
+</body></html>`);
+});
 
 app.listen(PORT, () => console.log(`📁 Path Traversal Lab running on http://localhost:${PORT}`));

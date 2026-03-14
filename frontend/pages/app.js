@@ -92,7 +92,15 @@ function roleBadge(role) {
   return 'border-cyan-700 text-cyan-500 bg-cyan-500/10';
 }
 
-function logout() {
+// ── Logout — calls backend to blacklist the token first ───────
+// This makes logout immediate: the token is invalidated server-side so
+// the 5-second lab re-check will hit /api/auth/me, get a 401, and redirect.
+async function logout() {
+  try {
+    await apiFetch('/api/auth/logout', { method: 'POST' });
+  } catch {
+    // Fail silently — still clear local session regardless
+  }
   Auth.clear();
   window.location.href = '/index.html';
 }

@@ -1,12 +1,75 @@
 const express   = require('express');
 const cors      = require('cors');
 const rateLimit = require('express-rate-limit');
+const jwt       = require('jsonwebtoken');
+const https     = require('https');
+const http      = require('http');
+
 const app  = express();
 const PORT = process.env.PORT || 5001;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ── CyberLab Auth Guard ──────────────────────────────────────
+const JWT_SECRET   = process.env.JWT_SECRET   || 'cyberlab_secret_change_in_production';
+const BACKEND_URL  = process.env.BACKEND_URL  || 'http://localhost:4000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+function nodeFetch(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const parsed  = new URL(url);
+    const lib     = parsed.protocol === 'https:' ? https : http;
+    const req     = lib.request({
+      hostname: parsed.hostname,
+      port:     parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path:     parsed.pathname + parsed.search,
+      method:   options.method || 'GET',
+      headers:  options.headers || {},
+    }, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => resolve({ ok: res.statusCode >= 200 && res.statusCode < 300 }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function requireLabAuth(req, res, next) {
+  if (req.path.startsWith('/api/')) return next();
+
+  const token = req.query.token;
+
+  if (!token) {
+    return res.send(`<!DOCTYPE html><html><head><script>
+      var t = sessionStorage.getItem('cl_token');
+      if (t) window.location.href = window.location.pathname + '?token=' + encodeURIComponent(t);
+      else   window.location.href = '${FRONTEND_URL}/login.html';
+    </script></head><body></body></html>`);
+  }
+
+  try {
+    jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.redirect(`${FRONTEND_URL}/login.html`);
+  }
+
+  try {
+    const r = await nodeFetch(`${BACKEND_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return res.redirect(`${FRONTEND_URL}/login.html`);
+  } catch (err) {
+    console.warn('[idor-lab] Backend unreachable for auth check:', err.message);
+  }
+
+  next();
+}
+
+app.use(requireLabAuth);
+// ─────────────────────────────────────────────────────────────
 
 // ── Rate limit lab API endpoints ─────────────────────────────
 const labLimiter = rateLimit({
@@ -33,11 +96,11 @@ const documents = {
   42: { id:42, owner_id:99, title:'Admin Credentials', content:'CONFIDENTIAL — FLAG{idor_docs_exposed_42}', classification:'top-secret' },
 };
 
-// ── VULNERABLE endpoints (intentional for teaching) ───────────
+// ── VULNERABLE endpoints ──────────────────────────────────────
 app.get('/api/vulnerable/users/:id',     (req, res) => { const u = users[+req.params.id];     u ? res.json(u) : res.status(404).json({ error: 'Not found' }); });
 app.get('/api/vulnerable/documents/:id', (req, res) => { const d = documents[+req.params.id]; d ? res.json(d) : res.status(404).json({ error: 'Not found' }); });
 
-// ── PATCHED endpoints (correct implementation) ────────────────
+// ── PATCHED endpoints ─────────────────────────────────────────
 app.get('/api/patched/users/:id', (req, res) => {
   const myId = +req.headers['x-user-id'], tid = +req.params.id;
   if (!myId) return res.status(401).json({ error: 'Missing x-user-id header' });
@@ -55,8 +118,13 @@ app.get('/api/patched/documents/:id', (req, res) => {
   res.json(d);
 });
 
-// ── UI (unchanged from original) ─────────────────────────────
-app.get('/', (req, res) => res.send(`<!DOCTYPE html>
+// ── UI ────────────────────────────────────────────────────────
+app.get('/', (req, res) => {
+  const token       = req.query.token || '';
+  const backendUrl  = BACKEND_URL;
+  const frontendUrl = FRONTEND_URL;
+
+  res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -128,11 +196,11 @@ function setUid(v){document.getElementById('uid').value=v;fetchUser();}
 function setDid(v){document.getElementById('did').value=v;fetchDoc();}
 async function fetchUser(){
   const id=document.getElementById('uid').value,el=document.getElementById('user-out'),fl=document.getElementById('user-flag');
-  try{const r=await fetch('/api/vulnerable/users/'+id),d=await r.json();el.textContent=JSON.stringify(d,null,2);const m=JSON.stringify(d).match(/FLAG\{[^}]+\}/);if(m){fl.textContent='🏁 Flag found: '+m[0];fl.classList.remove('hidden');}else fl.classList.add('hidden');}catch(e){el.textContent='Error: '+e.message;}
+  try{const r=await fetch('/api/vulnerable/users/'+id),d=await r.json();el.textContent=JSON.stringify(d,null,2);const m=JSON.stringify(d).match(/FLAG\\{[^}]+\\}/);if(m){fl.textContent='🏁 Flag found: '+m[0];fl.classList.remove('hidden');}else fl.classList.add('hidden');}catch(e){el.textContent='Error: '+e.message;}
 }
 async function fetchDoc(){
   const id=document.getElementById('did').value,el=document.getElementById('doc-out'),fl=document.getElementById('doc-flag');
-  try{const r=await fetch('/api/vulnerable/documents/'+id),d=await r.json();el.textContent=JSON.stringify(d,null,2);const m=JSON.stringify(d).match(/FLAG\{[^}]+\}/);if(m){fl.textContent='🏁 Bonus flag: '+m[0];fl.classList.remove('hidden');}else fl.classList.add('hidden');}catch(e){el.textContent='Error: '+e.message;}
+  try{const r=await fetch('/api/vulnerable/documents/'+id),d=await r.json();el.textContent=JSON.stringify(d,null,2);const m=JSON.stringify(d).match(/FLAG\\{[^}]+\\}/);if(m){fl.textContent='🏁 Bonus flag: '+m[0];fl.classList.remove('hidden');}else fl.classList.add('hidden');}catch(e){el.textContent='Error: '+e.message;}
 }
 async function fetchPatched(){
   const myId=document.getElementById('my-id').value,tid=document.getElementById('p-uid').value,el=document.getElementById('patch-out');
@@ -140,6 +208,23 @@ async function fetchPatched(){
 }
 fetchUser();
 <\/script>
-</body></html>`));
+
+<!-- ── 30-second auth re-check ── -->
+<script>
+(function(){
+  var token    = new URLSearchParams(window.location.search).get('token');
+  var BACKEND  = '${backendUrl}';
+  var FRONTEND = '${frontendUrl}';
+  function recheck(){
+    if(!token){ window.location.href = FRONTEND+'/login.html'; return; }
+    fetch(BACKEND+'/api/auth/me',{ headers:{ 'Authorization':'Bearer '+token } })
+      .then(function(r){ if(!r.ok) window.location.href = FRONTEND+'/login.html'; })
+      .catch(function(){});
+  }
+  setTimeout(function loop(){ recheck(); setTimeout(loop,5000); }, 5000);
+})();
+<\/script>
+</body></html>`);
+});
 
 app.listen(PORT, () => console.log(`🔓 IDOR Lab running on http://localhost:${PORT}`));

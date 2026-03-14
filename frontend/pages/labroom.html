@@ -301,11 +301,11 @@
           document.getElementById("lab-points").textContent = currentLab.points;
           document.getElementById("lab-category").textContent =
             currentLab.category;
-          // document.getElementById('lab-theory').innerHTML = currentLab.content || '<p>No content available.</p>'; old code
+          // Scrub any FLAG{} values from the theory content so they can't be read from source
           const safeContent = (
             currentLab.content || "<p>No content available.</p>"
           ).replace(/FLAG\{[^}]+\}/g, "");
-          document.getElementById("lab-theory").innerHTML = safeContent; // prevent flags from being visible in the theory section
+          document.getElementById("lab-theory").innerHTML = safeContent;
 
           const badge = document.getElementById("lab-difficulty-badge");
           badge.textContent = currentLab.difficulty;
@@ -317,7 +317,11 @@
           if (labUrl) {
             const panel = document.getElementById("lab-env-panel");
             const link = document.getElementById("lab-env-link");
-            link.href = labUrl;
+            const token = Auth.getToken();
+            // Pass token so the lab server can verify the user is authenticated
+            link.href = token
+              ? `${labUrl}?token=${encodeURIComponent(token)}`
+              : labUrl;
             panel.classList.remove("hidden");
           }
 
@@ -348,12 +352,12 @@
         el.innerHTML = attempts
           .map(
             (a) => `
-      <div class="flex items-center justify-between py-1 border-b border-gray-900/50">
-        <span class="${a.correct ? "text-green-400" : "text-red-400"}">${a.correct ? "✓" : "✗"}</span>
-        <span class="text-gray-600 font-mono text-xs truncate max-w-[160px]">${a.flag_submitted}</span>
-        <span class="text-gray-700 text-xs">${new Date(a.attempted_at).toLocaleTimeString()}</span>
-      </div>
-    `,
+          <div class="flex items-center justify-between py-1 border-b border-gray-900/50">
+            <span class="${a.correct ? "text-green-400" : "text-red-400"}">${a.correct ? "✓" : "✗"}</span>
+            <span class="text-gray-600 font-mono text-xs truncate max-w-[160px]">${a.flag_submitted}</span>
+            <span class="text-gray-700 text-xs">${new Date(a.attempted_at).toLocaleTimeString()}</span>
+          </div>
+        `,
           )
           .join("");
       }

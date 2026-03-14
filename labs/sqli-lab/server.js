@@ -1,40 +1,88 @@
 const express = require('express');
-const cors = require('cors');
-const rateLimit = require('express-rate-limit');
-const app = express();
+const cors    = require('cors');
+const jwt     = require('jsonwebtoken');
+const https   = require('https');
+const http    = require('http');
+
+const app  = express();
 const PORT = process.env.PORT || 5002;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Rate limit lab API endpoints ─────────────────────────────
-const labLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests to the lab. Slow down and read the theory!' },
-});
-app.use('/api', labLimiter);
+// ── CyberLab Auth Guard ──────────────────────────────────────
+const JWT_SECRET   = process.env.JWT_SECRET   || 'cyberlab_secret_change_in_production';
+const BACKEND_URL  = process.env.BACKEND_URL  || 'http://localhost:4000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+function nodeFetch(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const lib    = parsed.protocol === 'https:' ? https : http;
+    const req    = lib.request({
+      hostname: parsed.hostname,
+      port:     parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path:     parsed.pathname + parsed.search,
+      method:   options.method || 'GET',
+      headers:  options.headers || {},
+    }, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => resolve({ ok: res.statusCode >= 200 && res.statusCode < 300 }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function requireLabAuth(req, res, next) {
+  if (req.path.startsWith('/api/')) return next();
+
+  const token = req.query.token;
+
+  if (!token) {
+    return res.send(`<!DOCTYPE html><html><head><script>
+      var t = sessionStorage.getItem('cl_token');
+      if (t) window.location.href = window.location.pathname + '?token=' + encodeURIComponent(t);
+      else   window.location.href = '${FRONTEND_URL}/login.html';
+    <\/script></head><body></body></html>`);
+  }
+
+  try {
+    jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.redirect(`${FRONTEND_URL}/login.html`);
+  }
+
+  try {
+    const r = await nodeFetch(`${BACKEND_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return res.redirect(`${FRONTEND_URL}/login.html`);
+  } catch (err) {
+    console.warn('[sqli-lab] Backend unreachable for auth check:', err.message);
+  }
+
+  next();
+}
+
+app.use(requireLabAuth);
+// ─────────────────────────────────────────────────────────────
 
 const fakeDb = [
-  { id:1, username:'alice', password:'alice123',    role:'user',  secret:null },
-  { id:2, username:'bob',   password:'bob456',      role:'user',  secret:null },
+  { id:1, username:'alice', password:'alice123', role:'user',  secret:null },
+  { id:2, username:'bob',   password:'bob456',   role:'user',  secret:null },
   { id:3, username:'admin', password:'sup3rs3cr3t', role:'admin', secret:'FLAG{sql_injected_success}' },
 ];
 
 app.post('/api/vulnerable/login', (req, res) => {
   const { username, password } = req.body;
   const simulatedQuery = `SELECT * FROM users WHERE username='${username}' AND password='${password}'`;
-  const isBypass = /'\s*OR\s*['"]?1['"]?\s*=\s*['"]?1['"]?|'\s*OR\s*1\s*=\s*1\s*--|'\s*--/i.test(username + password);
+  const isBypass  = /'\s*OR\s*['"]?1['"]?\s*=\s*['"]?1['"]?|'\s*OR\s*1\s*=\s*1\s*--|'\s*--/i.test(username + password);
   const exactMatch = fakeDb.find(u => u.username === username && u.password === password);
-  if (isBypass) {
-    return res.json({ success:true, bypassed:true, query:simulatedQuery, user:fakeDb[2], message:'SQLi bypass successful!', flag:'FLAG{sql_injected_success}' });
-  }
-  if (exactMatch) {
-    return res.json({ success:true, bypassed:false, query:simulatedQuery, user:exactMatch, message:`Welcome back, ${exactMatch.username}!` });
-  }
+  if (isBypass)    return res.json({ success:true,  bypassed:true,  query:simulatedQuery, user:fakeDb[2], message:'SQLi bypass successful!', flag:'FLAG{sql_injected_success}' });
+  if (exactMatch)  return res.json({ success:true,  bypassed:false, query:simulatedQuery, user:exactMatch, message:`Welcome back, ${exactMatch.username}!` });
   res.status(401).json({ success:false, query:simulatedQuery, message:'Invalid username or password.' });
 });
 
@@ -45,22 +93,26 @@ app.post('/api/patched/login', (req, res) => {
   res.status(401).json({ success:false, message:'Invalid username or password.' });
 });
 
-const HTML = `<!DOCTYPE html>
+app.get('/', (req, res) => {
+  const token       = req.query.token || '';
+  const backendUrl  = BACKEND_URL;
+  const frontendUrl = FRONTEND_URL;
+
+  res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BankSecure Login - SQLi Lab</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com"><\/script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#1e3a5f 0%,#0f2340 100%);min-height:100vh;}
-  pre{background:#0f172a;color:#94a3b8;padding:1rem;border-radius:8px;font-size:0.75rem;overflow-x:auto;white-space:pre-wrap;}
-  .flag{background:#fef9c3;border:2px solid #eab308;color:#713f12;padding:0.75rem;border-radius:8px;font-family:monospace;font-weight:700;}
+body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#1e3a5f 0%,#0f2340 100%);min-height:100vh;}
+pre{background:#0f172a;color:#94a3b8;padding:1rem;border-radius:8px;font-size:0.75rem;overflow-x:auto;white-space:pre-wrap;}
+.flag{background:#fef9c3;border:2px solid #eab308;color:#713f12;padding:0.75rem;border-radius:8px;font-family:monospace;font-weight:700;}
 </style>
 </head>
 <body class="flex items-center justify-center p-4 py-12">
 <div class="w-full max-w-4xl space-y-6">
-
   <div class="bg-amber-50 border-l-4 border-amber-400 rounded-xl p-4 flex gap-3">
     <span class="text-2xl">⚠️</span>
     <div>
@@ -68,9 +120,7 @@ const HTML = `<!DOCTYPE html>
       <p class="text-amber-700 text-xs mt-1">This login is vulnerable to SQL injection. Use the payload buttons to bypass authentication and get the admin flag.</p>
     </div>
   </div>
-
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
     <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
       <div class="bg-gradient-to-r from-blue-800 to-blue-900 p-6 text-center">
         <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-2xl">🏦</span></div>
@@ -97,7 +147,6 @@ const HTML = `<!DOCTYPE html>
         <div id="v-result" class="hidden"></div>
       </div>
     </div>
-
     <div class="space-y-4">
       <div class="bg-white rounded-xl p-5 shadow">
         <h3 class="font-semibold text-gray-800 mb-3 text-sm">🔍 Simulated SQL Query</h3>
@@ -105,10 +154,7 @@ const HTML = `<!DOCTYPE html>
         <p class="text-xs text-gray-400 mt-2">Built by string concatenation — dangerous!</p>
       </div>
       <div class="bg-white rounded-xl p-5 shadow">
-        <h3 class="font-semibold text-gray-800 mb-3 text-sm flex items-center gap-2">
-          ✅ Patched Version
-          <span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded font-normal">Parameterized Query</span>
-        </h3>
+        <h3 class="font-semibold text-gray-800 mb-3 text-sm flex items-center gap-2">✅ Patched Version <span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded font-normal">Parameterized Query</span></h3>
         <div class="space-y-2 mb-3">
           <input id="p-user" type="text" placeholder="Username" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 font-mono">
           <input id="p-pass" type="text" placeholder="Password" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 font-mono">
@@ -119,65 +165,54 @@ const HTML = `<!DOCTYPE html>
     </div>
   </div>
 </div>
-
 <script>
-  document.querySelectorAll('.payload-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.getElementById('v-user').value = btn.dataset.u;
-      document.getElementById('v-pass').value = btn.dataset.p;
-      doVulnLogin();
-    });
+document.querySelectorAll('.payload-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('v-user').value = btn.dataset.u;
+    document.getElementById('v-pass').value = btn.dataset.p;
+    doVulnLogin();
   });
-
-  document.getElementById('login-btn').addEventListener('click', doVulnLogin);
-  document.getElementById('patch-btn').addEventListener('click', doPatchLogin);
-
-  async function doVulnLogin() {
-    const u = document.getElementById('v-user').value;
-    const p = document.getElementById('v-pass').value;
-    document.getElementById('query-display').textContent = "SELECT * FROM users WHERE username='" + u + "' AND password='" + p + "'";
-    try {
-      const r = await fetch('/api/vulnerable/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u, password: p })
-      });
-      const d = await r.json();
-      const el = document.getElementById('v-result');
-      el.classList.remove('hidden');
-      if (d.bypassed) {
-        el.innerHTML = '<div class="bg-red-50 border border-red-300 rounded-lg p-3 text-sm">'
-          + '<p class="font-bold text-red-700">🚨 SQLi Bypass Successful!</p>'
-          + '<p class="text-red-600 text-xs mt-1">Logged in as: <strong>' + d.user.username + '</strong> (' + d.user.role + ')</p>'
-          + '<div class="mt-2 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded p-2 font-mono text-xs font-bold">🏁 ' + d.flag + '</div>'
-          + '</div>';
-      } else if (d.success) {
-        el.innerHTML = '<div class="bg-green-50 border border-green-300 rounded-lg p-3 text-sm"><p class="text-green-700 font-semibold">✅ ' + d.message + '</p></div>';
-      } else {
-        el.innerHTML = '<div class="bg-gray-50 border border-gray-300 rounded-lg p-3 text-sm text-gray-600">❌ ' + d.message + '</div>';
-      }
-    } catch(e) {
-      document.getElementById('v-result').innerHTML = '<p class="text-red-500 text-xs">Error: ' + e.message + '</p>';
-    }
+});
+document.getElementById('login-btn').addEventListener('click', doVulnLogin);
+document.getElementById('patch-btn').addEventListener('click', doPatchLogin);
+async function doVulnLogin(){
+  const u=document.getElementById('v-user').value, p=document.getElementById('v-pass').value;
+  document.getElementById('query-display').textContent="SELECT * FROM users WHERE username='"+u+"' AND password='"+p+"'";
+  const r=await fetch('/api/vulnerable/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  const d=await r.json();
+  const el=document.getElementById('v-result'); el.classList.remove('hidden');
+  if(d.bypassed){
+    el.innerHTML='<div class="bg-red-50 border border-red-300 rounded-lg p-3 text-sm"><p class="font-bold text-red-700">🚨 SQLi Bypass Successful!</p><p class="text-red-600 text-xs mt-1">Logged in as: <strong>'+d.user.username+'</strong> ('+d.user.role+')</p><div class="mt-2 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded p-2 font-mono text-xs font-bold">🏁 '+d.flag+'</div></div>';
+  } else if(d.success){
+    el.innerHTML='<div class="bg-green-50 border border-green-300 rounded-lg p-3 text-sm"><p class="text-green-700 font-semibold">✅ '+d.message+'</p></div>';
+  } else {
+    el.innerHTML='<div class="bg-gray-50 border border-gray-300 rounded-lg p-3 text-sm text-gray-600">❌ '+d.message+'</div>';
   }
+}
+async function doPatchLogin(){
+  const u=document.getElementById('p-user').value, p=document.getElementById('p-pass').value;
+  const r=await fetch('/api/patched/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  const d=await r.json();
+  document.getElementById('p-result').textContent=(r.ok?'✅ ':'❌ ')+JSON.stringify(d,null,2);
+}
+<\/script>
 
-  async function doPatchLogin() {
-    const u = document.getElementById('p-user').value;
-    const p = document.getElementById('p-pass').value;
-    try {
-      const r = await fetch('/api/patched/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u, password: p })
-      });
-      const d = await r.json();
-      document.getElementById('p-result').textContent = (r.ok ? '✅ ' : '❌ ') + JSON.stringify(d, null, 2);
-    } catch(e) {
-      document.getElementById('p-result').textContent = 'Error: ' + e.message;
-    }
+<!-- ── 30-second auth re-check ── -->
+<script>
+(function(){
+  var token    = new URLSearchParams(window.location.search).get('token');
+  var BACKEND  = '${backendUrl}';
+  var FRONTEND = '${frontendUrl}';
+  function recheck(){
+    if(!token){ window.location.href=FRONTEND+'/login.html'; return; }
+    fetch(BACKEND+'/api/auth/me',{headers:{'Authorization':'Bearer '+token}})
+      .then(function(r){ if(!r.ok) window.location.href=FRONTEND+'/login.html'; })
+      .catch(function(){});
   }
-</script>
-</body></html>`;
+  setTimeout(function loop(){ recheck(); setTimeout(loop,5000); },5000);
+})();
+<\/script>
+</body></html>`);
+});
 
-app.get('/', (req, res) => res.send(HTML));
 app.listen(PORT, () => console.log(`💉 SQLi Lab running on http://localhost:${PORT}`));
