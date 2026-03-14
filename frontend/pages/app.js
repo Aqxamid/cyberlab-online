@@ -100,15 +100,20 @@ async function logout() {
   } catch {
     // Fail silently — still clear local session regardless
   }
-  localStorage.setItem('cl_logout', Date.now()); // set BEFORE clearing + navigating
   Auth.clear();
-  // Small delay so other tabs receive the storage event before we navigate away
+  // Remove first then set so the storage event fires cleanly in other tabs
+  localStorage.removeItem('cl_logout');
+  localStorage.setItem('cl_logout', Date.now());
   setTimeout(() => { window.location.href = '/index.html'; }, 100);
 }
 
 // ── Cross-tab logout listener ─────────────────────────────────
+// Fires in other open frontend tabs when logout() runs.
+// e.newValue !== null guard prevents the removeItem() call from re-triggering this.
+// Immediately removes the key then redirects to prevent any further re-firing.
 window.addEventListener('storage', (e) => {
-  if (e.key === 'cl_logout') {
+  if (e.key === 'cl_logout' && e.newValue !== null) {
+    localStorage.removeItem('cl_logout');
     Auth.clear();
     window.location.href = '/login.html';
   }
