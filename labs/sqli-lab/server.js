@@ -78,11 +78,27 @@ const fakeDb = [
 
 app.post('/api/vulnerable/login', (req, res) => {
   const { username, password } = req.body;
+  const combined = (username || '') + (password || '');
   const simulatedQuery = `SELECT * FROM users WHERE username='${username}' AND password='${password}'`;
-  const isBypass   = /'\s*OR\s*['"]?1['"]?\s*=\s*['"]?1['"]?|'\s*OR\s*1\s*=\s*1\s*--|'\s*--/i.test(username + password);
+
+  // Tier 3 — successful bypass (always-true condition + comment-out or tautology)
+  const isBypass =
+    /'\s*OR\s*'?1'?\s*=\s*'?1/i.test(combined) ||   // ' OR '1'='1  or  ' OR 1=1
+    /'\s*OR\s*1\s*=\s*1/i.test(combined) ||
+    /'\s*--/.test(combined) ||                        // '--  (comment out password check)
+    /'\s*#/.test(combined) ||                         // '# (MySQL comment)
+    /'\s*\/\*/.test(combined);                        // '/* (block comment)
+
+  // Tier 2 — query is broken/malformed (has SQL chars but no valid bypass yet)
+  const hasSqlChars = /['";\-\-]/.test(combined);
+  const hasOr       = /\bOR\b/i.test(combined);
+  const isPartial   = hasSqlChars && !isBypass;
+
   const exactMatch = fakeDb.find(u => u.username === username && u.password === password);
+
   if (isBypass)   return res.json({ success:true,  bypassed:true,  query:simulatedQuery, user:fakeDb[2], message:'SQLi bypass successful!', flag:'FLAG{sql_injected_success}' });
   if (exactMatch) return res.json({ success:true,  bypassed:false, query:simulatedQuery, user:exactMatch, message:'Welcome back, ' + exactMatch.username + '!' });
+  if (isPartial)  return res.status(500).json({ success:false, broken:true, query:simulatedQuery, message: hasOr ? "You're on the right track — query logic is broken. Keep building the condition." : "SQL syntax error — you've broken out of the string. Now what?" });
   res.status(401).json({ success:false, query:simulatedQuery, message:'Invalid username or password.' });
 });
 
@@ -105,7 +121,7 @@ app.get('/', (req, res) => {
   + '<head>\n'
   + '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">\n'
   + '<title>BankSecure \u2014 SQLi Lab</title>\n'
-  + '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 32 32\'%3E%3Crect width=\'32\' height=\'32\' rx=\'6\' fill=\'%23dc2626\'/%3E%3Ctext x=\'16\' y=\'23\' font-size=\'17\' text-anchor=\'middle\' fill=\'white\' font-family=\'monospace\' font-weight=\'bold\'%3ESQL%3C/text%3E%3C/svg%3E">\n'
+  + '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 32 32\'%3E%3Crect width=\'32\' height=\'32\' rx=\'6\' fill=\'%23991b1b\'/%3E%3Cg transform=\'rotate(-45 16 16)\'%3E%3Crect x=\'14.5\' y=\'4\' width=\'3\' height=\'16\' rx=\'1.5\' fill=\'%23fca5a5\'/%3E%3Crect x=\'13\' y=\'20\' width=\'6\' height=\'3\' rx=\'1\' fill=\'%23fca5a5\'/%3E%3Cpolygon points=\'16,30 13,23 19,23\' fill=\'%23fca5a5\'/%3E%3Crect x=\'11\' y=\'8\' width=\'2\' height=\'2\' rx=\'0.5\' fill=\'%23fecaca\'/%3E%3Crect x=\'11\' y=\'12\' width=\'2\' height=\'2\' rx=\'0.5\' fill=\'%23fecaca\'/%3E%3Crect x=\'19\' y=\'8\' width=\'2\' height=\'2\' rx=\'0.5\' fill=\'%23fecaca\'/%3E%3C/g%3E%3C/svg%3E">\n'
   + '<script src="https://cdn.tailwindcss.com"></s' + 'cript>\n'
   + '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">\n'
   + '<style>\n'
@@ -422,10 +438,12 @@ app.get('/', (req, res) => {
   + '    return r.json().then(function(d){\n'
   + '      res.style.display = "block";\n'
   + '      if(d.bypassed){\n'
-  + '        res.innerHTML = \'<div class="r-bad"><p style="font-weight:700;color:#dc2626;font-size:13px;">Authentication Bypassed!</p><p style="color:#ef4444;font-size:12px;margin-top:4px;">Logged in as: <strong>\'+d.user.username+\'</strong> (\'+d.user.role+\')</p></div>\';\n'
+  + '        res.innerHTML = \'<div class="r-bad"><p style="font-weight:700;color:#dc2626;font-size:13px;">&#128680; Authentication Bypassed!</p><p style="color:#ef4444;font-size:12px;margin-top:4px;">Logged in as: <strong>\'+d.user.username+\'</strong> (\'+d.user.role+\')</p></div>\';\n'
   + '        fl.textContent = "Flag: "+d.flag;\n'
   + '        fl.style.display = "block";\n'
   + '        if(!flagDone){ flagDone=true; document.getElementById("flags-count").textContent="1 / 1"; document.getElementById("flag-progress").style.width="100%"; }\n'
+  + '      } else if(d.broken){\n'
+  + '        res.innerHTML = \'<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px;"><p style="font-weight:700;color:#92400e;font-size:13px;">&#9889; SQL Error \u2014 Query Broken</p><p style="color:#b45309;font-size:12px;margin-top:4px;">\'+d.message+\'</p></div>\';\n'
   + '      } else if(d.success){\n'
   + '        res.innerHTML = \'<div class="r-ok"><p style="color:#15803d;font-weight:600;font-size:13px;">Logged in as \'+d.user.username+\'</p><p style="color:#16a34a;font-size:12px;margin-top:4px;">Role: \'+d.user.role+\' \u2014 no flag here though.</p></div>\';\n'
   + '      } else {\n'
