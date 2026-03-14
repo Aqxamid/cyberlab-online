@@ -9,7 +9,6 @@ const Auth = {
   setSession(token, user) {
     localStorage.setItem('cl_token', token);
     localStorage.setItem('cl_user', JSON.stringify(user));
-    localStorage.removeItem('cl_logout'); // clear any leftover logout signal on new login
   },
   clear() {
     localStorage.removeItem('cl_token');
@@ -94,6 +93,8 @@ function roleBadge(role) {
 }
 
 // ── Logout — calls backend to blacklist the token first ───────
+// Token is invalidated server-side so the 5-second lab re-check
+// will hit /api/auth/me, get a 401, and redirect within 5 seconds.
 async function logout() {
   try {
     await apiFetch('/api/auth/logout', { method: 'POST' });
@@ -101,23 +102,8 @@ async function logout() {
     // Fail silently — still clear local session regardless
   }
   Auth.clear();
-  // Remove first then set so the storage event fires cleanly in other tabs
-  localStorage.removeItem('cl_logout');
-  localStorage.setItem('cl_logout', Date.now());
-  setTimeout(() => { window.location.href = '/index.html'; }, 100);
+  window.location.href = '/index.html';
 }
-
-// ── Cross-tab logout listener ─────────────────────────────────
-// Fires in other open frontend tabs when logout() runs.
-// e.newValue !== null guard prevents the removeItem() call from re-triggering this.
-// Immediately removes the key then redirects to prevent any further re-firing.
-window.addEventListener('storage', (e) => {
-  if (e.key === 'cl_logout' && e.newValue !== null) {
-    localStorage.removeItem('cl_logout');
-    Auth.clear();
-    window.location.href = '/login.html';
-  }
-});
 
 function difficultyBadge(diff) {
   if (diff === 'advanced')     return 'border-red-600 text-red-400 bg-red-500/10';
