@@ -4,6 +4,10 @@ const { body, param, validationResult } = require('express-validator');
 const supabase = require('../db/supabase');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
+const SCORE_FLOOR   = 20;
+const ATTEMPT_COST  = 1;
+const HINT_COSTS    = [0, 5, 20, 25]; // matches lab frontend HINT_DEDUCTIONS
+
 function handleValidation(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ error: errors.array()[0].msg });
@@ -22,11 +26,15 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const { data: completions } = await supabase
       .from('lab_completions')
-      .select('lab_uuid')
+      .select('lab_uuid, points_earned')
       .eq('user_uuid', req.user.uuid);
 
-    const completedUuids = new Set((completions || []).map(c => c.lab_uuid));
-    const result = labs.map(lab => ({ ...lab, completed: completedUuids.has(lab.uuid) }));
+    const completedMap = Object.fromEntries((completions || []).map(c => [c.lab_uuid, c.points_earned]));
+    const result = labs.map(lab => ({
+      ...lab,
+      completed:    lab.uuid in completedMap,
+      pointsEarned: completedMap[lab.uuid] ?? null,
+    }));
     res.json(result);
   } catch (err) {
     console.error('Labs fetch error:', err);
@@ -51,12 +59,18 @@ router.get('/:slug',
 
       const { data: completion } = await supabase
         .from('lab_completions')
-        .select('completed_at, points_earned')
+        .select('completed_at, points_earned, hints_used')
         .eq('user_uuid', req.user.uuid)
         .eq('lab_uuid', lab.uuid)
         .single();
 
-      res.json({ ...lab, completed: !!completion, completedAt: completion?.completed_at, pointsEarned: completion?.points_earned ?? null });
+      res.json({
+        ...lab,
+        completed:    !!completion,
+        completedAt:  completion?.completed_at  ?? null,
+        pointsEarned: completion?.points_earned ?? null,
+        hintsUsed:    completion?.hints_used    ?? null,
+      });
     } catch (err) {
       res.status(500).json({ error: 'Failed to fetch lab' });
     }
@@ -64,6 +78,9 @@ router.get('/:slug',
 );
 
 // ── POST /api/labs/:slug/attempt ──────────────────────────────
+// Single entry point for flag submission + score calculation.
+// Labs send: flag, hints_used (total pts deducted by hints), attempts_count.
+// Backend verifies flag, calculates final score, saves to lab_completions.
 router.post('/:slug/attempt',
   authenticateToken,
   param('slug').matches(/^[a-z0-9-]{1,80}$/).withMessage('Invalid lab slug'),
@@ -71,15 +88,23 @@ router.post('/:slug/attempt',
     .notEmpty().withMessage('Flag is required')
     .isLength({ max: 200 }).withMessage('Flag is too long')
     .trim(),
+  body('hints_used')
+    .optional()
+    .isInt({ min: 0, max: 10000 }).withMessage('Invalid hints_used value'),
+  body('attempts_count')
+    .optional()
+    .isInt({ min: 0, max: 10000 }).withMessage('Invalid attempts_count value'),
   async (req, res) => {
     if (handleValidation(req, res)) return;
 
     const { flag } = req.body;
+    const hintsUsed     = parseInt(req.body.hints_used     ?? 0, 10);
+    const attemptsCount = parseInt(req.body.attempts_count ?? 0, 10);
 
     try {
       const { data: lab, error } = await supabase
         .from('labs')
-        .select('uuid, flag')
+        .select('uuid, flag, points')
         .eq('slug', req.params.slug)
         .single();
 
@@ -87,6 +112,7 @@ router.post('/:slug/attempt',
 
       const correct = flag.trim() === lab.flag.trim();
 
+      // Always log the attempt
       await supabase.from('lab_attempts').insert([{
         user_uuid:      req.user.uuid,
         lab_uuid:       lab.uuid,
@@ -94,59 +120,20 @@ router.post('/:slug/attempt',
         correct,
       }]);
 
-      if (correct) {
-        await supabase.from('lab_completions')
-          .upsert(
-            [{ user_uuid: req.user.uuid, lab_uuid: lab.uuid }],
-            { onConflict: 'user_uuid,lab_uuid' }
-          );
+      if (!correct) {
+        return res.status(400).json({ correct: false, message: 'Wrong flag. Keep trying!' });
       }
 
-      res.json({
-        correct,
-        message: correct ? '🎉 Correct! Flag accepted.' : '❌ Wrong flag. Keep trying!',
-      });
-    } catch (err) {
-      console.error('Attempt error:', err);
-      res.status(500).json({ error: 'Failed to submit flag' });
-    }
-  }
-);
+      // Calculate score server-side
+      // hints_used is the total pts already deducted by hints (trusted but clamped)
+      // attempts_count is how many URL submissions were made (1pt each, winning attempt is free)
+      const maxHintDeduction = HINT_COSTS.reduce((a, b) => a + b, 0); // 50 max
+      const clampedHints     = Math.min(hintsUsed, maxHintDeduction);
+      const clampedAttempts  = Math.min(attemptsCount, lab.points - SCORE_FLOOR); // can't cost more than possible
+      const totalDeduction   = clampedHints + (clampedAttempts * ATTEMPT_COST);
+      const pointsEarned     = Math.max(SCORE_FLOOR, Math.min(lab.points, lab.points - totalDeduction));
 
-// ── POST /api/labs/:slug/complete ─────────────────────────────
-// Called by lab frontends when a student captures the flag(s).
-// Saves points_earned after applying hint deductions.
-// points_earned is clamped to the lab's max points from the DB —
-// the frontend value is never trusted blindly.
-// If the student already has a completion, we only update if the
-// new score is strictly higher (prevents re-submission from lowering score).
-router.post('/:slug/complete',
-  authenticateToken,
-  param('slug').matches(/^[a-z0-9-]{1,80}$/).withMessage('Invalid lab slug'),
-  body('points_earned')
-    .isInt({ min: 0, max: 10000 }).withMessage('Invalid points value'),
-  body('hints_used')
-    .optional()
-    .isInt({ min: 0, max: 10000 }).withMessage('Invalid hints_used value'),
-  async (req, res) => {
-    if (handleValidation(req, res)) return;
-
-    try {
-      // Fetch lab to get the authoritative max points from DB
-      const { data: lab, error: labErr } = await supabase
-        .from('labs')
-        .select('uuid, points')
-        .eq('slug', req.params.slug)
-        .single();
-
-      if (labErr || !lab) return res.status(404).json({ error: 'Lab not found' });
-
-      // Clamp submitted score to lab max — prevents client manipulation
-      const submittedPoints = parseInt(req.body.points_earned, 10);
-      const hintsUsed       = parseInt(req.body.hints_used ?? 0, 10);
-      const pointsEarned    = Math.min(submittedPoints, lab.points);
-
-      // Check for existing completion
+      // Check existing completion — only update if new score is higher
       const { data: existing } = await supabase
         .from('lab_completions')
         .select('points_earned')
@@ -154,34 +141,26 @@ router.post('/:slug/complete',
         .eq('lab_uuid', lab.uuid)
         .single();
 
-      // Only update if no existing completion, or new score is higher
-      if (!existing || (existing.points_earned == null) || pointsEarned > existing.points_earned) {
-        const { error: upsertErr } = await supabase
+      if (!existing || existing.points_earned == null || pointsEarned > existing.points_earned) {
+        await supabase
           .from('lab_completions')
           .upsert(
-            [{
-              user_uuid:     req.user.uuid,
-              lab_uuid:      lab.uuid,
-              points_earned: pointsEarned,
-              hints_used:    hintsUsed,
-            }],
+            [{ user_uuid: req.user.uuid, lab_uuid: lab.uuid, points_earned: pointsEarned, hints_used: clampedHints }],
             { onConflict: 'user_uuid,lab_uuid' }
           );
-
-        if (upsertErr) throw upsertErr;
       }
 
       res.json({
-        success:       true,
+        correct:       true,
         points_earned: pointsEarned,
         lab_max:       lab.points,
         message:       pointsEarned === lab.points
-          ? 'Full marks! No hints used.'
+          ? 'Full marks! No deductions.'
           : `Completed with ${pointsEarned} / ${lab.points} points.`,
       });
     } catch (err) {
-      console.error('Complete error:', err);
-      res.status(500).json({ error: 'Failed to record completion' });
+      console.error('Attempt error:', err);
+      res.status(500).json({ error: 'Failed to submit flag' });
     }
   }
 );
@@ -214,7 +193,7 @@ router.get('/:slug/progress',
       res.json({
         attempts:     attempts || [],
         completed:    !!completion,
-        completedAt:  completion?.completed_at,
+        completedAt:  completion?.completed_at  ?? null,
         pointsEarned: completion?.points_earned ?? null,
         hintsUsed:    completion?.hints_used    ?? null,
       });
