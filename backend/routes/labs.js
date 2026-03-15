@@ -4,9 +4,8 @@ const { body, param, validationResult } = require('express-validator');
 const supabase = require('../db/supabase');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
-const SCORE_FLOOR   = 20;
-const ATTEMPT_COST  = 1;
-const HINT_COSTS    = [0, 5, 20, 25]; // matches lab frontend HINT_DEDUCTIONS
+const SCORE_FLOOR  = 20;
+const ATTEMPT_COST = 1;
 
 function handleValidation(req, res) {
   const errors = validationResult(req);
@@ -21,7 +20,6 @@ router.get('/', authenticateToken, async (req, res) => {
       .from('labs')
       .select('uuid, slug, title, description, category, difficulty, points, enabled')
       .order('id');
-
     if (error) throw error;
 
     const { data: completions } = await supabase
@@ -30,12 +28,11 @@ router.get('/', authenticateToken, async (req, res) => {
       .eq('user_uuid', req.user.uuid);
 
     const completedMap = Object.fromEntries((completions || []).map(c => [c.lab_uuid, c.points_earned]));
-    const result = labs.map(lab => ({
+    res.json(labs.map(lab => ({
       ...lab,
       completed:    lab.uuid in completedMap,
       pointsEarned: completedMap[lab.uuid] ?? null,
-    }));
-    res.json(result);
+    })));
   } catch (err) {
     console.error('Labs fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch labs' });
@@ -54,7 +51,6 @@ router.get('/:slug',
         .select('uuid, slug, title, description, category, difficulty, points, enabled, content')
         .eq('slug', req.params.slug)
         .single();
-
       if (error || !lab) return res.status(404).json({ error: 'Lab not found' });
 
       const { data: completion } = await supabase
@@ -77,37 +73,50 @@ router.get('/:slug',
   }
 );
 
+// ── POST /api/labs/:slug/hint ─────────────────────────────────
+// Called by the lab frontend each time a student reveals a hint.
+// Upserts into lab_hint_usage so the server knows total hint cost at submission time.
+router.post('/:slug/hint',
+  authenticateToken,
+  param('slug').matches(/^[a-z0-9-]{1,80}$/).withMessage('Invalid lab slug'),
+  body('hint_index').isInt({ min: 0, max: 10 }).withMessage('Invalid hint index'),
+  body('cost').isInt({ min: 0, max: 500 }).withMessage('Invalid cost'),
+  async (req, res) => {
+    if (handleValidation(req, res)) return;
+    try {
+      const { data: lab } = await supabase
+        .from('labs').select('uuid').eq('slug', req.params.slug).single();
+      if (!lab) return res.status(404).json({ error: 'Lab not found' });
+
+      // upsert — if student somehow calls this twice for same hint, cost won't double
+      await supabase
+        .from('lab_hint_usage')
+        .upsert(
+          [{ user_uuid: req.user.uuid, lab_uuid: lab.uuid, hint_index: req.body.hint_index, cost: req.body.cost }],
+          { onConflict: 'user_uuid,lab_uuid,hint_index' }
+        );
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Hint usage error:', err);
+      res.status(500).json({ error: 'Failed to record hint' });
+    }
+  }
+);
+
 // ── POST /api/labs/:slug/attempt ──────────────────────────────
-// Single entry point for flag submission + score calculation.
-// Labs send: flag, hints_used (total pts deducted by hints), attempts_count.
-// Backend verifies flag, calculates final score, saves to lab_completions.
+// Verifies flag, calculates score fully server-side, saves completion.
 router.post('/:slug/attempt',
   authenticateToken,
   param('slug').matches(/^[a-z0-9-]{1,80}$/).withMessage('Invalid lab slug'),
-  body('flag')
-    .notEmpty().withMessage('Flag is required')
-    .isLength({ max: 200 }).withMessage('Flag is too long')
-    .trim(),
-  body('hints_used')
-    .optional()
-    .isInt({ min: 0, max: 10000 }).withMessage('Invalid hints_used value'),
-  body('attempts_count')
-    .optional()
-    .isInt({ min: 0, max: 10000 }).withMessage('Invalid attempts_count value'),
+  body('flag').notEmpty().withMessage('Flag is required').isLength({ max: 200 }).trim(),
   async (req, res) => {
     if (handleValidation(req, res)) return;
-
     const { flag } = req.body;
-    const hintsUsed     = parseInt(req.body.hints_used     ?? 0, 10);
-    const attemptsCount = parseInt(req.body.attempts_count ?? 0, 10);
 
     try {
       const { data: lab, error } = await supabase
-        .from('labs')
-        .select('uuid, flag, points')
-        .eq('slug', req.params.slug)
-        .single();
-
+        .from('labs').select('uuid, flag, points').eq('slug', req.params.slug).single();
       if (error || !lab) return res.status(404).json({ error: 'Lab not found' });
 
       const correct = flag.trim() === lab.flag.trim();
@@ -124,16 +133,30 @@ router.post('/:slug/attempt',
         return res.status(400).json({ correct: false, message: 'Wrong flag. Keep trying!' });
       }
 
-      // Calculate score server-side
-      // hints_used is the total pts already deducted by hints (trusted but clamped)
-      // attempts_count is how many URL submissions were made (1pt each, winning attempt is free)
-      const maxHintDeduction = HINT_COSTS.reduce((a, b) => a + b, 0); // 50 max
-      const clampedHints     = Math.min(hintsUsed, maxHintDeduction);
-      const clampedAttempts  = Math.min(attemptsCount, lab.points - SCORE_FLOOR); // can't cost more than possible
-      const totalDeduction   = clampedHints + (clampedAttempts * ATTEMPT_COST);
-      const pointsEarned     = Math.max(SCORE_FLOOR, Math.min(lab.points, lab.points - totalDeduction));
+      // ── Score calculation — fully server-side ──────────────────
+      // 1. Count total attempts (correct one is free — subtract 1)
+      const { count: totalAttempts } = await supabase
+        .from('lab_attempts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_uuid', req.user.uuid)
+        .eq('lab_uuid', lab.uuid);
 
-      // Check existing completion — only update if new score is higher
+      const billableAttempts = Math.max(0, (totalAttempts || 1) - 1); // winning attempt free
+
+      // 2. Sum hint costs
+      const { data: hints } = await supabase
+        .from('lab_hint_usage')
+        .select('cost')
+        .eq('user_uuid', req.user.uuid)
+        .eq('lab_uuid', lab.uuid);
+
+      const hintCost = (hints || []).reduce((sum, h) => sum + (h.cost || 0), 0);
+
+      // 3. Calculate final score
+      const totalDeduction = (billableAttempts * ATTEMPT_COST) + hintCost;
+      const pointsEarned   = Math.max(SCORE_FLOOR, lab.points - totalDeduction);
+
+      // 4. Check existing completion — only update if new score is higher
       const { data: existing } = await supabase
         .from('lab_completions')
         .select('points_earned')
@@ -145,7 +168,7 @@ router.post('/:slug/attempt',
         await supabase
           .from('lab_completions')
           .upsert(
-            [{ user_uuid: req.user.uuid, lab_uuid: lab.uuid, points_earned: pointsEarned, hints_used: clampedHints }],
+            [{ user_uuid: req.user.uuid, lab_uuid: lab.uuid, points_earned: pointsEarned, hints_used: hintCost }],
             { onConflict: 'user_uuid,lab_uuid' }
           );
       }
@@ -154,6 +177,7 @@ router.post('/:slug/attempt',
         correct:       true,
         points_earned: pointsEarned,
         lab_max:       lab.points,
+        deductions:    { attempts: billableAttempts * ATTEMPT_COST, hints: hintCost },
         message:       pointsEarned === lab.points
           ? 'Full marks! No deductions.'
           : `Completed with ${pointsEarned} / ${lab.points} points.`,

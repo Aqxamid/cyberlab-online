@@ -283,26 +283,13 @@
         btn.disabled = true;
         errEl.classList.add("hidden");
 
-        // Read score deduction data saved by the lab environment
-        let hintsUsed     = 0;
-        let attemptsCount = 0;
-        try {
-          const stored = sessionStorage.getItem('lab_score_' + slug);
-          if (stored) {
-            const parsed  = JSON.parse(stored);
-            hintsUsed     = parsed.hints_used     || 0;
-            attemptsCount = parsed.attempts_count || 0;
-          }
-        } catch(e) {}
-
         try {
           const result = await apiFetch(`/api/labs/${slug}/attempt`, {
             method: "POST",
-            body: JSON.stringify({ flag, hints_used: hintsUsed, attempts_count: attemptsCount }),
+            body: JSON.stringify({ flag }),
           });
 
           if (result.correct) {
-            try { sessionStorage.removeItem('lab_score_' + slug); } catch(e) {}
             okEl.textContent = `🎉 Correct! You earned ${result.points_earned} / ${currentLab.points} points!`;
             okEl.classList.remove("hidden");
             input.disabled = true;
