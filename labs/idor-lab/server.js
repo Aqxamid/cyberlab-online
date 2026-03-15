@@ -511,7 +511,7 @@ function parseFakeUrl(raw) {
 }
 
 function hl(json) {
-  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(m) {
+  return json.replace(/("[^"]*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?)/g, function(m) {
     if (/^"/.test(m)) {
       if (/:$/.test(m)) return '<span style="color:#7dd3fc">' + m + '</span>';
       return '<span style="color:#86efac">' + m + '</span>';
@@ -599,13 +599,14 @@ async function doFetch(apiPath, ids, headers) {
 }
 
 function fetchFromUrl(which) {
+  var path;
   if (which === 'user') {
-    var path = parseFakeUrl(document.getElementById('url-user').value);
-    if (!path || !path.startsWith('/api/')) { document.getElementById('user-out').textContent = '// Invalid URL\n// Expected: corp-portal.internal/api/vulnerable/users/<id>'; return; }
+    path = parseFakeUrl(document.getElementById('url-user').value);
+    if (!path || !path.startsWith('/api/')) { document.getElementById('user-out').textContent = '// Invalid URL — expected: corp-portal.internal/api/vulnerable/users/<id>'; return; }
     doFetch(path, { outId:'user-out', flagId:'user-flag', pathDisplayId:'user-path-display', httpBadgeId:'user-http-badge', statusBarId:'user-status-bar', statusBadgeId:'user-status-badge', flagKey:'user' });
   } else {
-    var path = parseFakeUrl(document.getElementById('url-doc').value);
-    if (!path || !path.startsWith('/api/')) { document.getElementById('doc-out').textContent = '// Invalid URL\n// Expected: corp-portal.internal/api/vulnerable/documents/<id>'; return; }
+    path = parseFakeUrl(document.getElementById('url-doc').value);
+    if (!path || !path.startsWith('/api/')) { document.getElementById('doc-out').textContent = '// Invalid URL — expected: corp-portal.internal/api/vulnerable/documents/<id>'; return; }
     doFetch(path, { outId:'doc-out', flagId:'doc-flag', pathDisplayId:'doc-path-display', httpBadgeId:'doc-http-badge', statusBarId:'doc-status-bar', statusBadgeId:'doc-status-badge', flagKey:'doc' });
   }
 }
