@@ -73,9 +73,35 @@ router.get('/:slug',
   }
 );
 
+// ── POST /api/labs/:slug/tick ─────────────────────────────────
+// Called by lab frontend on every URL/form submission (attempt).
+// Increments attempt_ticks in lab_progress so backend can score accurately.
+router.post('/:slug/tick',
+  authenticateToken,
+  param('slug').matches(/^[a-z0-9-]{1,80}$/).withMessage('Invalid lab slug'),
+  async (req, res) => {
+    if (handleValidation(req, res)) return;
+    try {
+      const { data: lab } = await supabase
+        .from('labs').select('uuid').eq('slug', req.params.slug).single();
+      if (!lab) return res.status(404).json({ error: 'Lab not found' });
+
+      // upsert row then increment
+      await supabase.rpc('increment_attempt_ticks', {
+        p_user_uuid: req.user.uuid,
+        p_lab_uuid:  lab.uuid,
+      });
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Tick error:', err);
+      res.status(500).json({ error: 'Failed to record attempt' });
+    }
+  }
+);
+
 // ── POST /api/labs/:slug/hint ─────────────────────────────────
-// Called by the lab frontend each time a student reveals a hint.
-// Upserts into lab_hint_usage so the server knows total hint cost at submission time.
+// Called by lab frontend each time a hint is revealed.
 router.post('/:slug/hint',
   authenticateToken,
   param('slug').matches(/^[a-z0-9-]{1,80}$/).withMessage('Invalid lab slug'),
@@ -88,7 +114,6 @@ router.post('/:slug/hint',
         .from('labs').select('uuid').eq('slug', req.params.slug).single();
       if (!lab) return res.status(404).json({ error: 'Lab not found' });
 
-      // upsert — if student somehow calls this twice for same hint, cost won't double
       await supabase
         .from('lab_hint_usage')
         .upsert(
@@ -133,15 +158,18 @@ router.post('/:slug/attempt',
         return res.status(400).json({ correct: false, message: 'Wrong flag. Keep trying!' });
       }
 
-      // ── Score calculation — fully server-side ──────────────────
-      // 1. Count total attempts (correct one is free — subtract 1)
-      const { count: totalAttempts } = await supabase
-        .from('lab_attempts')
-        .select('*', { count: 'exact', head: true })
+      // ── Score calculation — fully server-side ──────────────
+      // 1. Get attempt ticks (URL submissions in the lab)
+      const { data: progress } = await supabase
+        .from('lab_progress')
+        .select('attempt_ticks')
         .eq('user_uuid', req.user.uuid)
-        .eq('lab_uuid', lab.uuid);
+        .eq('lab_uuid', lab.uuid)
+        .single();
 
-      const billableAttempts = Math.max(0, (totalAttempts || 1) - 1); // winning attempt free
+      const ticks = progress?.attempt_ticks || 0;
+      // winning attempt tick was already recorded — it's free
+      const billableTicks = Math.max(0, ticks - 1);
 
       // 2. Sum hint costs
       const { data: hints } = await supabase
@@ -153,10 +181,10 @@ router.post('/:slug/attempt',
       const hintCost = (hints || []).reduce((sum, h) => sum + (h.cost || 0), 0);
 
       // 3. Calculate final score
-      const totalDeduction = (billableAttempts * ATTEMPT_COST) + hintCost;
+      const totalDeduction = (billableTicks * ATTEMPT_COST) + hintCost;
       const pointsEarned   = Math.max(SCORE_FLOOR, lab.points - totalDeduction);
 
-      // 4. Check existing completion — only update if new score is higher
+      // 4. Only save if better than existing score
       const { data: existing } = await supabase
         .from('lab_completions')
         .select('points_earned')
@@ -177,7 +205,7 @@ router.post('/:slug/attempt',
         correct:       true,
         points_earned: pointsEarned,
         lab_max:       lab.points,
-        deductions:    { attempts: billableAttempts * ATTEMPT_COST, hints: hintCost },
+        deductions:    { attempts: billableTicks * ATTEMPT_COST, hints: hintCost },
         message:       pointsEarned === lab.points
           ? 'Full marks! No deductions.'
           : `Completed with ${pointsEarned} / ${lab.points} points.`,
