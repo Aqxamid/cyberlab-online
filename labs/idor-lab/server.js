@@ -219,15 +219,14 @@ pre  { background: #0f172a; color: #94a3b8; padding: 1rem; border-radius: 8px; f
             <div class="nav-area">
               <button class="nav-btn">&#8592;</button>
               <button class="nav-btn">&#8594;</button>
-              <button class="nav-btn clickable" onclick="fetchFromUrl('user')">&#8635;</button>
+              <button class="nav-btn clickable" id="reload-user">&#8635;</button>
             </div>
-            <div class="url-wrap" onclick="document.getElementById('url-user').focus()">
+            <div class="url-wrap" id="wrap-user">
               <span class="url-scheme">https://</span>
               <input type="text" class="url-input" id="url-user"
                 value="corp-portal.internal/api/vulnerable/users/1"
-                spellcheck="false" autocomplete="off"
-                onkeydown="if(event.key==='Enter'){fetchFromUrl('user')}">
-              <button class="url-go-btn" onclick="fetchFromUrl('user')">&#10148;</button>
+                spellcheck="false" autocomplete="off">
+              <button class="url-go-btn" id="go-user">&#10148;</button>
             </div>
           </div>
           <div class="page-topbar">
@@ -263,15 +262,14 @@ pre  { background: #0f172a; color: #94a3b8; padding: 1rem; border-radius: 8px; f
             <div class="nav-area">
               <button class="nav-btn">&#8592;</button>
               <button class="nav-btn">&#8594;</button>
-              <button class="nav-btn clickable" onclick="fetchFromUrl('doc')">&#8635;</button>
+              <button class="nav-btn clickable" id="reload-doc">&#8635;</button>
             </div>
-            <div class="url-wrap" onclick="document.getElementById('url-doc').focus()">
+            <div class="url-wrap" id="wrap-doc">
               <span class="url-scheme">https://</span>
               <input type="text" class="url-input" id="url-doc"
                 value="corp-portal.internal/api/vulnerable/documents/1"
-                spellcheck="false" autocomplete="off"
-                onkeydown="if(event.key==='Enter'){fetchFromUrl('doc')}">
-              <button class="url-go-btn" onclick="fetchFromUrl('doc')">&#10148;</button>
+                spellcheck="false" autocomplete="off">
+              <button class="url-go-btn" id="go-doc">&#10148;</button>
             </div>
           </div>
           <div class="page-topbar">
@@ -307,15 +305,14 @@ pre  { background: #0f172a; color: #94a3b8; padding: 1rem; border-radius: 8px; f
             <div class="nav-area">
               <button class="nav-btn">&#8592;</button>
               <button class="nav-btn">&#8594;</button>
-              <button class="nav-btn clickable" onclick="fetchPatched()">&#8635;</button>
+              <button class="nav-btn clickable" id="reload-patched">&#8635;</button>
             </div>
-            <div class="url-wrap" onclick="document.getElementById('url-patched').focus()">
+            <div class="url-wrap" id="wrap-patched">
               <span class="url-scheme">https://</span>
               <input type="text" class="url-input" id="url-patched"
                 value="corp-portal.internal/api/patched/users/1"
-                spellcheck="false" autocomplete="off"
-                onkeydown="if(event.key==='Enter'){fetchPatched()}">
-              <button class="url-go-btn" onclick="fetchPatched()">&#10148;</button>
+                spellcheck="false" autocomplete="off">
+              <button class="url-go-btn" id="go-patched">&#10148;</button>
             </div>
           </div>
           <div class="page-topbar" style="background:#166534;">
@@ -653,6 +650,22 @@ function revealHint(idx, auto) {
   if (lbl) lbl.innerHTML = lbl.innerHTML.replace('&#128274;', '&#128275;');
   document.getElementById('hints-used-label').textContent = hintsRevealed.filter(Boolean).length + ' of 4 revealed';
 }
+
+// ── Wire up all events via addEventListener (no inline handlers) ──
+document.getElementById('url-user').addEventListener('keydown', function(e){ if(e.key === 'Enter') fetchFromUrl('user'); });
+document.getElementById('go-user').addEventListener('click', function(){ fetchFromUrl('user'); });
+document.getElementById('reload-user').addEventListener('click', function(){ fetchFromUrl('user'); });
+document.getElementById('wrap-user').addEventListener('click', function(){ document.getElementById('url-user').focus(); });
+
+document.getElementById('url-doc').addEventListener('keydown', function(e){ if(e.key === 'Enter') fetchFromUrl('doc'); });
+document.getElementById('go-doc').addEventListener('click', function(){ fetchFromUrl('doc'); });
+document.getElementById('reload-doc').addEventListener('click', function(){ fetchFromUrl('doc'); });
+document.getElementById('wrap-doc').addEventListener('click', function(){ document.getElementById('url-doc').focus(); });
+
+document.getElementById('url-patched').addEventListener('keydown', function(e){ if(e.key === 'Enter') fetchPatched(); });
+document.getElementById('go-patched').addEventListener('click', function(){ fetchPatched(); });
+document.getElementById('reload-patched').addEventListener('click', function(){ fetchPatched(); });
+document.getElementById('wrap-patched').addEventListener('click', function(){ document.getElementById('url-patched').focus(); });
 <\/script>
 
 <script>
